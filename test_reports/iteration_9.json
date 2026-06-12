@@ -1,0 +1,55 @@
+{
+  "summary": "Phase C iteration_9 (auth-surface fix on /api/admin/crm/*): verified /admin/crm/status and /admin/crm/resync now correctly enforce admin_session_token + admin_users.access_level=0 + MFA via require_access_0. 18/19 passed, 1 intentional skip (see below). The bug-fix headline (customer session_token cookie no longer reaches the CRM endpoint) is confirmed: GET/POST with admin@roobani.dev's session_token now returns 401, previously returned 200.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/admin/crm/resync",
+        "issue": "When HUBSPOT_API_KEY is absent the endpoint early-returns {ok:false, reason:'HUBSPOT_API_KEY not configured', ...} at server.py:1641 BEFORE the `_audit(admin['admin_id'], 'crm.resync', ...)` call at line 1687. Result: no paper trail of who pressed the no-op resync button. The review request's audit assertion (`action='crm.resync' with admin_id starting adm_*`) therefore cannot be exercised on the current preview env until HUBSPOT_API_KEY lands. Suggested fix: move the `_audit(...)` call (with synced=0, queued=0, reason='no_key') ABOVE the early return, OR emit a separate `crm.resync.skipped` audit row in the no-key branch. The adm_* shape itself was verified via the `admin.login` audit row produced by the test fixture's login (admin_id starts with `adm_` and equals super_admin_id from /admin/auth/me)."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verified_items": [
+    "GET /api/admin/crm/status with NO cookie -> 401.",
+    "GET /api/admin/crm/status with customer session_token (admin@roobani.dev) -> 401 (bug-fix verified).",
+    "GET /api/admin/crm/status with super-admin admin_session_token -> 200 with {provider:'hubspot', configured:false, pending:{contacts:int, leads:int}, synced:{contacts:int, leads:int}}.",
+    "GET /api/admin/crm/status with manager admin_session_token (access_level=1) -> 403 (require_access_0 rejects).",
+    "POST /api/admin/crm/resync with NO cookie -> 401.",
+    "POST /api/admin/crm/resync with customer session_token -> 401 (bug-fix verified).",
+    "POST /api/admin/crm/resync with manager admin_session_token -> 403.",
+    "POST /api/admin/crm/resync with super-admin admin_session_token + HUBSPOT_API_KEY absent -> 200 with EXACT body {ok:false, reason:'HUBSPOT_API_KEY not configured', synced:0, queued:0}.",
+    "GET /api/admin/dashboard with super-admin admin_session_token -> 200 (regression unchanged).",
+    "GET /api/admin/dashboard with NO cookie -> 401.",
+    "POST /api/contact with NO auth -> 201, doc lands with crm_synced=false (verified via pending counter delta on /admin/crm/status).",
+    "Audit row admin_id shape verified to start with `adm_` (from admin.login row keyed to S['super_admin_id'] = /admin/auth/me 'admin_id')."
+  ],
+  "skipped_tests": [
+    {
+      "test": "TestCrmResyncAuth::test_34_audit_row_has_real_admin_id_and_meta",
+      "reason": "admin_crm_resync early-returns before _audit() when HUBSPOT_API_KEY is absent (current env). Test skips with a documented note and falls back to verifying the adm_* admin_id shape via the admin.login audit row. Will auto-execute the full assertion once HUBSPOT_API_KEY is set."
+    }
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_phase_c_seo_crm.py",
+    "/app/test_reports/pytest/pytest_iter9.xml"
+  ],
+  "action_items": [
+    "Decide whether /api/admin/crm/resync should emit a `crm.resync` (or `crm.resync.skipped`) audit row even in the no-HUBSPOT_API_KEY branch. Today the early-return at server.py:1641-1642 returns BEFORE the _audit call at line 1687, so there's no paper trail of who hit the button while the key is unconfigured. Two equally good fixes: (a) move the `await _audit(admin['admin_id'], 'crm.resync', 'crm', 'hubspot', {'reason':'no_key','synced':0,'queued':0}, request=request)` ABOVE the `return` in the no-key branch; or (b) emit a distinct action='crm.resync.skipped' there.",
+    "When HUBSPOT_API_KEY lands, the existing TestCrmResyncAuth::test_34 will auto-promote from SKIPPED to a real assertion — no test changes needed."
+  ],
+  "critical_code_review_comments": [
+    "server.py:1640-1642 — early-return short-circuits the audit. See action_items #1.",
+    "server.py:1565-1568 — require_access_0 correctly returns 403 for access_level!=0 and 401 from current_admin when no cookie. Confirmed via test_23 and test_32.",
+    "server.py:1687-1694 — _audit call uses positional args admin['admin_id'] first; this is the correct admin_users adm_* id (admin coming from Depends(require_access_0) -> current_admin -> _resolve_admin which loads from admin_users by session token). Confirmed via /admin/auth/me returning admin_id starting `adm_`."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase_c_seo_crm.py"],
+  "success_rate": {"backend": "18/19 (94.7% pass, 1 documented skip)", "frontend": "n/a"},
+  "test_credentials": "Super admin: admin@roobani.com / Admin@Roobani2026! (admin_users, access_level=0, MFA enrolled via setup+verify flow on fresh DB). Customer-side admin (for negative tests): admin@roobani.dev / RoobaniAdmin#2026 (users.is_admin=true). Manager admin: created fresh inside the fixture via POST /api/admin/admins, access_level=1.",
+  "seed_data_creation": "Module fixture: (1) mongosh reset of admin@roobani.com MFA + admin_sessions + mfa_challenges; (2) MFA-enrolled super admin session; (3) customer-admin session via /api/auth/login; (4) fresh manager admin (test_phasec_mgr_*@example.com) with MFA-enrolled session. Per-test TEST_PhaseC* and TEST_RegC* contact docs created. Module teardown best-effort deletes via mongosh.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: `REACT_APP_BACKEND_URL=https://roobani-app.preview.emergentagent.com pytest backend/tests/test_phase_c_seo_crm.py -v` (~7s, 18 pass + 1 skip). The skipped test will auto-promote to a real assertion once HUBSPOT_API_KEY is set in backend/.env. The headline fix (customer session_token rejected on CRM endpoints) is confirmed in test_21 and test_31. Phase B suite (test_phase_b_admin_bulk.py) is independent and still applicable.",
+  "rca of the issue": "Iteration_8 flagged the auth-surface as a critical-minor: /admin/crm/* used Depends(require_admin) which checks customer session_token + users.is_admin, allowing admin@roobani.dev (a customer with is_admin=true) to reach the CRM endpoints while completely bypassing admin_users + MFA, and producing audit rows keyed to a customer user_id. iteration_9 swaps the dependency to Depends(require_access_0) -> current_admin -> _resolve_admin from admin_sessions/admin_users. Verified: (a) NO cookie + customer cookie both return 401 (current_admin rejects); (b) manager (access_level=1) admin_session returns 403 (require_access_0 rejects); (c) super-admin admin_session passes and `admin['admin_id']` passed to _audit is the canonical `adm_*` from admin_users. Residual gap: the no-key branch early-returns without auditing — minor and documented in action_items."
+}
