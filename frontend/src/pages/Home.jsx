@@ -199,7 +199,7 @@ export default function Home() {
               <picture>
                 <source srcSet="/brand/hero_visual.webp" type="image/webp" />
                 <img
-                  src="/brand/hero_visual.png"
+                  src="/brand/hero_visual.webp"
                   alt="Roobani client dashboard showing a 90-day portfolio performance curve and live market data."
                   className="absolute inset-0 w-full h-full object-cover"
                   loading="eager"

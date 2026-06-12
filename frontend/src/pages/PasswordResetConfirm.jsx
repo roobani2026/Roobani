@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { Logo } from "../components/Logo";
+import SEO from "../components/SEO";
 
 export default function PasswordResetConfirm() {
   const [params] = useSearchParams();
@@ -28,6 +29,7 @@ export default function PasswordResetConfirm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 pt-32 pb-16" data-testid="password-reset-confirm-page">
+      <SEO title="Set New Password" description="Choose a new password for your Roobani account." noindex />
       <div className="w-full max-w-md">
         <Link to="/" className="inline-flex"><Logo size={56} /></Link>
         <div className="rb-mono text-[11px] uppercase tracking-[0.22em] text-rb-text2 mt-10">Set New Password</div>

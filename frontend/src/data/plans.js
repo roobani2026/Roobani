@@ -18,7 +18,7 @@ export const PLANS = [
       { name: "Gold", value: 15, color: "#2A9D8F" },
     ],
     history: [100, 101.2, 102.1, 102.8, 103.4, 104.9, 105.8, 106.7, 107.4, 108.1, 108.9, 109.6],
-    visual: "/brand/plan_foundation.png",
+    visual: "/brand/plan_foundation.webp",
   },
   {
     slug: "growth",
@@ -40,7 +40,7 @@ export const PLANS = [
       { name: "Gold", value: 10, color: "#6B6B6B" },
     ],
     history: [100, 101, 99.4, 103.1, 105.7, 104.2, 108.1, 110.4, 109.2, 112.8, 114.3, 116.1],
-    visual: "/brand/plan_growth.png",
+    visual: "/brand/plan_growth.webp",
   },
   {
     slug: "accelerator",
@@ -61,7 +61,7 @@ export const PLANS = [
       { name: "Commodities", value: 15, color: "#2A9D8F" },
     ],
     history: [100, 104, 99, 108, 112, 107, 116, 122, 118, 128, 134, 142],
-    visual: "/brand/plan_accelerator.png",
+    visual: "/brand/plan_accelerator.webp",
   },
   {
     slug: "elite",
@@ -84,7 +84,7 @@ export const PLANS = [
       { name: "Gold", value: 8, color: "#3A7D5C" },
     ],
     history: [100, 103, 101, 108, 115, 112, 124, 130, 126, 140, 152, 162],
-    visual: "/brand/plan_elite.png",
+    visual: "/brand/plan_elite.webp",
   },
 ];
 
@@ -122,33 +122,33 @@ export const TESTIMONIALS = [
     name: "Aanya Mehta",
     title: "Growth Plan Investor",
     quote: "Roobani gave me a real plan, not a sales pitch. My portfolio is up 14.2% in 11 months.",
-    avatar: "/brand/avatar_1.png",
+    avatar: "/brand/avatar_1.webp",
   },
   {
     name: "Marcus Whitfield",
     title: "Elite Plan Investor",
     quote: "Institutional discipline, boutique attention. The reporting alone is worth the fee.",
-    avatar: "/brand/avatar_2.png",
+    avatar: "/brand/avatar_2.webp",
   },
   {
     name: "Kenji Tanaka",
     title: "Accelerator Investor",
     quote: "Sharp insights, zero noise. My team finally trusts the macro calls we are getting.",
-    avatar: "/brand/avatar_3.png",
+    avatar: "/brand/avatar_3.webp",
   },
   {
     name: "Elin Bergstrom",
     title: "Foundation Plan Investor",
     quote: "I wanted clarity over hype. Roobani delivered, every quarter, on time.",
-    avatar: "/brand/avatar_4.png",
+    avatar: "/brand/avatar_4.webp",
   },
 ];
 
 export const STEPS = [
-  { num: "01", title: "Create Your Account", body: "Verify in under three minutes with secure encrypted onboarding.", img: "/brand/step_account.png" },
-  { num: "02", title: "Choose Your Plan", body: "Pick a plan that matches your risk profile and timeline.", img: "/brand/step_plan.png" },
-  { num: "03", title: "Fund Your Investment", body: "Transfer funds securely via bank or compliant on-ramp.", img: "/brand/step_fund.png" },
-  { num: "04", title: "Track and Grow", body: "Monitor performance with live dashboards and quarterly reviews.", img: "/brand/step_track.png" },
+  { num: "01", title: "Create Your Account", body: "Verify in under three minutes with secure encrypted onboarding.", img: "/brand/step_account.webp" },
+  { num: "02", title: "Choose Your Plan", body: "Pick a plan that matches your risk profile and timeline.", img: "/brand/step_plan.webp" },
+  { num: "03", title: "Fund Your Investment", body: "Transfer funds securely via bank or compliant on-ramp.", img: "/brand/step_fund.webp" },
+  { num: "04", title: "Track and Grow", body: "Monitor performance with live dashboards and quarterly reviews.", img: "/brand/step_track.webp" },
 ];
 
 export const TRUST_METRICS = [

@@ -1089,6 +1089,104 @@ async def _crm_push_contact(local_id: str, props: dict) -> None:
         logger.warning("HubSpot push for %s failed: %s", local_id, e)
 
 
+@api.post("/admin/crm/resync")
+async def admin_crm_resync(
+    request: Request,
+    admin: dict = Depends(require_admin),
+    limit: int = 200,
+) -> dict:
+    """Backfill HubSpot for all queued (crm_synced=false) contact + lead
+    submissions. Idempotent — re-runs are safe because _crm_push_contact uses
+    upsert-by-email. Returns counters for monitoring.
+
+    Trigger this once after HUBSPOT_API_KEY lands in the environment, then
+    leave it on a daily cron if you prefer a belt-and-braces backfill.
+    """
+    api_key = os.environ.get("HUBSPOT_API_KEY", "").strip()
+    if not api_key:
+        return {"ok": False, "reason": "HUBSPOT_API_KEY not configured", "synced": 0, "queued": 0}
+
+    limit = max(1, min(1000, int(limit)))
+    contacts_synced = 0
+    leads_synced = 0
+    failed: list[dict] = []
+
+    contact_cursor = db.contact_submissions.find({"crm_synced": False}).limit(limit)
+    async for doc in contact_cursor:
+        try:
+            await _crm_push_contact(doc["contact_id"], {
+                "email": dec(doc["email_enc"]),
+                "firstname": (doc.get("name") or "").split(" ", 1)[0],
+                "lastname": ((doc.get("name") or "").split(" ", 1)[1] if " " in (doc.get("name") or "") else ""),
+                "phone": dec(doc["phone_enc"]) if doc.get("phone_enc") else "",
+                "country": doc.get("country_code") or "",
+                "message": doc.get("message") or "",
+                "hs_lead_status": "NEW",
+                "lifecyclestage": "lead",
+                "source": "contact_form_backfill",
+            })
+            contacts_synced += 1
+        except Exception as e:  # noqa: BLE001
+            failed.append({"type": "contact", "id": doc.get("contact_id"), "reason": str(e)[:200]})
+
+    lead_cursor = db.leads.find({"crm_synced": False}).limit(limit)
+    async for doc in lead_cursor:
+        try:
+            await _crm_push_contact(doc["lead_id"], {
+                "email": dec(doc["email_enc"]),
+                "firstname": (doc.get("full_name") or "").split(" ", 1)[0],
+                "lastname": ((doc.get("full_name") or "").split(" ", 1)[1] if " " in (doc.get("full_name") or "") else ""),
+                "phone": dec(doc["phone_enc"]) if doc.get("phone_enc") else "",
+                "preferred_channel": doc.get("preferred_contact") or "",
+                "investment_goal__c": doc.get("investment_goal") or "",
+                "budget_range__c": doc.get("budget_range") or "",
+                "hs_lead_status": "NEW",
+                "lifecyclestage": "marketingqualifiedlead",
+                "source": (doc.get("source_page") or "leadform") + "_backfill",
+            })
+            leads_synced += 1
+        except Exception as e:  # noqa: BLE001
+            failed.append({"type": "lead", "id": doc.get("lead_id"), "reason": str(e)[:200]})
+
+    # Audit so we have a paper trail of who hit the backfill button.
+    await _audit(
+        request=request,
+        admin=admin,
+        action="crm.resync",
+        target_type="crm",
+        target_id="hubspot",
+        meta={"contacts_synced": contacts_synced, "leads_synced": leads_synced, "failed_count": len(failed), "limit": limit},
+    )
+
+    pending_contacts = await db.contact_submissions.count_documents({"crm_synced": False})
+    pending_leads = await db.leads.count_documents({"crm_synced": False})
+
+    return {
+        "ok": True,
+        "synced": contacts_synced + leads_synced,
+        "contacts_synced": contacts_synced,
+        "leads_synced": leads_synced,
+        "pending_after": pending_contacts + pending_leads,
+        "failed": failed,
+    }
+
+
+@api.get("/admin/crm/status")
+async def admin_crm_status(admin: dict = Depends(require_admin)) -> dict:
+    """Snapshot of CRM connectivity + how much is queued."""
+    api_key = os.environ.get("HUBSPOT_API_KEY", "").strip()
+    pending_contacts = await db.contact_submissions.count_documents({"crm_synced": False})
+    pending_leads = await db.leads.count_documents({"crm_synced": False})
+    synced_contacts = await db.contact_submissions.count_documents({"crm_synced": True})
+    synced_leads = await db.leads.count_documents({"crm_synced": True})
+    return {
+        "provider": "hubspot",
+        "configured": bool(api_key),
+        "pending": {"contacts": pending_contacts, "leads": pending_leads},
+        "synced": {"contacts": synced_contacts, "leads": synced_leads},
+    }
+
+
 @app.get("/api/sitemap.json", include_in_schema=False)
 async def sitemap_json() -> dict:
     """Machine-readable sitemap mirror under /api. The frontend serves the
@@ -1099,7 +1197,6 @@ async def sitemap_json() -> dict:
         {"loc": "/", "priority": 1.0, "changefreq": "weekly"},
         {"loc": "/plans", "priority": 0.9, "changefreq": "weekly"},
         {"loc": "/contact", "priority": 0.7, "changefreq": "monthly"},
-        {"loc": "/about", "priority": 0.6, "changefreq": "monthly"},
         {"loc": "/privacy", "priority": 0.3, "changefreq": "yearly"},
         {"loc": "/terms", "priority": 0.3, "changefreq": "yearly"},
         {"loc": "/cookies", "priority": 0.3, "changefreq": "yearly"},

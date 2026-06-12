@@ -60,6 +60,7 @@ export default function Contact() {
         title="Speak to a strategist"
         description="Talk to a senior Roobani strategist about your portfolio. Nairobi-based wealth management, response within one business day."
         image="/brand/about_visual.webp"
+        canonical="https://roobani.com/contact"
         keywords={["wealth advisor Kenya", "investment consultation Nairobi", "private banker contact"]}
         structuredData={{
           "@context": "https://schema.org",
@@ -99,7 +100,7 @@ export default function Contact() {
               <picture>
                 <source srcSet="/brand/about_visual.webp" type="image/webp" />
                 <img
-                  src="/brand/about_visual.png"
+                  src="/brand/about_visual.webp"
                   alt="Roobani strategists at work in the Nairobi office — multi-screen trading floor with live market data."
                   className="w-full h-full object-cover"
                   loading="lazy"

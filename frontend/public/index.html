@@ -10,25 +10,14 @@
     <link rel="apple-touch-icon" href="/brand/icon.svg" />
     <link rel="mask-icon" href="/brand/icon.svg" color="#1A1F3D" />
 
-    <!-- Default SEO. Per-page overrides ship via react-helmet-async (see SEO.jsx).
-         Keep these focused on the homepage; do not stuff keywords. -->
+    <!-- Default SEO. Per-page meta + Open Graph + Twitter + canonical are
+         injected by react-helmet-async via the <SEO/> component on each
+         page (see src/components/SEO.jsx). A bare static fallback is left
+         here for non-JS crawlers (e.g. old Slack previews) only. -->
     <title>Roobani — Concierge wealth, audited returns.</title>
-    <meta name="description" content="Roobani pairs you with a dedicated portfolio manager and curated multi-asset plans across equities, sukuk-style fixed income, real assets, and digital assets. Licensed wealth management out of Nairobi." />
-    <link rel="canonical" href="https://roobani.com/" />
+    <meta name="description" content="Roobani pairs you with a dedicated portfolio manager and curated multi-asset plans across equities, sukuk-style fixed income, real assets, and digital assets. Licensed wealth management out of Nairobi." data-rh-default />
 
-    <!-- Open Graph / Twitter -->
-    <meta property="og:site_name" content="Roobani" />
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Roobani — Concierge wealth, audited returns." />
-    <meta property="og:description" content="A dedicated portfolio manager. Curated multi-asset plans. Audited quarterly. One client at a time." />
-    <meta property="og:image" content="/brand/hero_visual.webp" />
-    <meta property="og:url" content="https://roobani.com/" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Roobani — Concierge wealth, audited returns." />
-    <meta name="twitter:description" content="Curated investment plans. Live market data. One client at a time." />
-    <meta name="twitter:image" content="/brand/hero_visual.webp" />
-
-    <!-- Robots: allow indexing by default; specific routes can override via Helmet. -->
+    <!-- Robots: allow indexing by default; specific routes override via Helmet. -->
     <meta name="robots" content="index,follow" />
 
     <!-- Typography. Preconnect to Google Fonts so we don't pay the DNS+TLS

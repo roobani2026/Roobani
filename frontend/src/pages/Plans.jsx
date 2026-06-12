@@ -5,6 +5,7 @@ import { PLANS, formatPlanReturn } from "../data/plans";
 import { ArrowRight } from "lucide-react";
 import LiveMarketPanel from "../components/LiveMarketPanel";
 import PlanExplainer from "../components/PlanExplainer";
+import SEO from "../components/SEO";
 import { useCurrency } from "../lib/currency";
 
 function PlanSection({ plan, idx }) {
@@ -134,6 +135,36 @@ export default function Plans() {
 
   return (
     <div data-testid="plans-page">
+      <SEO
+        title="Investment Plans"
+        description="Four curated multi-asset plans — Foundation, Growth, Accelerator, Elite — built around equities, sukuk-style fixed income, real assets, and digital assets. Compare target return, risk, minimums, and lock-in side by side."
+        image="/brand/plan_foundation.webp"
+        imageAlt="Roobani Foundation plan composition donut chart."
+        keywords={[
+          "investment plans Kenya",
+          "multi-asset portfolio",
+          "sukuk fixed income plan",
+          "managed crypto plan",
+          "wealth plan comparison",
+        ]}
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          "name": "Roobani Investment Plans",
+          "itemListElement": PLANS.map((p, i) => ({
+            "@type": "ListItem",
+            "position": i + 1,
+            "item": {
+              "@type": "FinancialProduct",
+              "name": p.name,
+              "description": p.tagline,
+              "category": "Discretionary Portfolio Management",
+              "provider": { "@type": "Organization", "name": "Roobani" },
+              "url": `https://roobani.com/plans#${p.slug}`,
+            },
+          })),
+        }}
+      />
       <section className="pt-40 pb-16 md:pt-48 md:pb-20 relative overflow-hidden">
         <div className="rb-grain absolute inset-0" />
         <div className="relative max-w-[1400px] mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-12 gap-10 items-end">

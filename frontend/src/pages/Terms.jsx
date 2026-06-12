@@ -1,9 +1,15 @@
 import React from "react";
 import LegalLayout from "../components/LegalLayout";
+import SEO from "../components/SEO";
 
 export default function Terms() {
   return (
-    <LegalLayout
+    <>
+      <SEO
+        title="Terms of Service"
+        description="The legal terms governing your use of Roobani Capital's investment platform: eligibility, account, services, fees, deposits, withdrawals, liability, and governing law."
+      />
+      <LegalLayout
       testid="terms-page"
       eyebrow="Terms"
       title="Terms of Service"
@@ -113,5 +119,6 @@ export default function Terms() {
         <a href="mailto:legal@roobani.com">legal@roobani.com</a>.
       </p>
     </LegalLayout>
+    </>
   );
 }

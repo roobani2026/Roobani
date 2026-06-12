@@ -1,0 +1,55 @@
+{
+  "summary": "Phase C key-free items backend coverage: sitemap.xml + /api/sitemap.json (no /about, lastmod + image:image), WebP performance assets, CRM status + resync endpoints (no-key no-op), and contact/lead/admin-list regression. 19/19 pass. Per-page Helmet SEO meta on the public routes is injected client-side by react-helmet-async (CRA SPA) and is therefore NOT validatable via HTTP-only testing — flagged below for browser-based verification.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/admin/crm/status, /api/admin/crm/resync, /api/admin/contacts, /api/admin/leads",
+        "issue": "These endpoints use the customer-side require_admin (session_token cookie + users.is_admin=true), NOT the admin_session_token + admin_users flow used by /admin/customers, /admin/admins, /admin/withdrawals etc. As a result: (a) the only out-of-the-box principal who can reach them is the seeded customer admin@roobani.dev (RoobaniAdmin#2026); (b) the prompt's description 'super-admin auth required' is satisfied only because admin@roobani.dev happens to be the only is_admin=true customer; (c) a manager admin in admin_users (access_level=1) authenticated via admin_session_token gets 401, not 403, because their cookie isn't even consulted; (d) the audit record produced by /admin/crm/resync uses admin['admin_id'] but `admin` is actually a customer user dict whose primary key is `user_id`, so the audit row's `admin_id` field is the customer's user_id (e.g. user_6b2cb512ef3f), not an admin_id from admin_users — this will look wrong in /admin/audit. Action: decide whether CRM endpoints should switch to current_admin/require_access_0 to align with the rest of the /admin surface; if so, also re-key the audit row to admin['admin_id']."
+      },
+      {
+        "endpoint": "Per-page Helmet SEO meta (titles, descriptions, canonical, og:image, JSON-LD, noindex on auth pages)",
+        "issue": "react-helmet-async is client-side only in this CRA build (no SSR), so the per-page meta + JSON-LD is injected after the JS bundle mounts. HTTP-only fetches of /, /plans, /contact, /privacy, /terms, /cookies, /login, /signup, /auth/forgot, /auth/reset, /auth/verify all return the same index.html shell (one fallback <title>, one fallback <meta name='description'>, one default robots=index,follow). Crawlers that do render JS (Google, Bing) will see the per-page tags; non-rendering crawlers and HTTP-only validators will not. This is expected behaviour for CRA + Helmet, but the per-page SEO assertions in the review request can only be validated with a headless browser. Recommendation: either accept the client-side injection for SEO (modern Googlebot renders JS), or switch to a build step that pre-renders these public routes (react-snap / Next.js)."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verified_items": [
+    "/sitemap.xml -> 200, Content-Type application/xml, valid XML, 6 <url> entries.",
+    "Every <url> has a <lastmod>; routes set = {/, /plans, /contact, /privacy, /terms, /cookies}; /about is absent.",
+    "<image:image> present on / (hero_visual.webp) and /plans (plan_foundation.webp).",
+    "/api/sitemap.json -> 200; routes array exactly matches sitemap.xml normalised paths; /about absent.",
+    "/brand/{hero_visual,plan_foundation,about_visual,step_account,avatar_1}.webp all 200 with Content-Type image/webp (parametrised).",
+    "/api/admin/crm/status -> 401 unauth; 200 with admin session; provider='hubspot', configured=false (HUBSPOT_API_KEY absent), pending/synced are dicts of int contacts/leads.",
+    "/api/admin/crm/resync -> 401 unauth; 200 with admin session returns exactly {ok:false, reason:'HUBSPOT_API_KEY not configured', synced:0, queued:0}; pending counter not decremented (verified by creating a contact then re-checking /admin/crm/status).",
+    "/api/admin/crm/resync -> 403 for a non-admin authenticated customer (require_admin's is_admin check fires correctly).",
+    "POST /api/contact (no auth) -> 201 + contact_id + received_at; record then surfaces in /api/admin/contacts.",
+    "POST /api/leads (no auth) -> 201 + lead_id + received_at; record then surfaces in /api/admin/leads.",
+    "GET /api/admin/contacts and /api/admin/leads -> 401 unauth; 200 with customer-admin session.",
+    "/ (index.html) ships a single fallback <title> ending in Roobani, a single fallback <meta name='description'>, and a default <meta name='robots' content='index,follow'>; per-page Helmet tags will layer on top in-browser."
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_phase_c_seo_crm.py",
+    "/app/test_reports/pytest/pytest_iter8.xml"
+  ],
+  "action_items": [
+    "Decide whether /api/admin/crm/* (and /api/admin/contacts, /api/admin/leads) should use the admin_session + require_access_0 flow like the rest of /admin/*. If yes, swap Depends(require_admin) -> Depends(require_access_0), and re-key the audit row to admin['admin_id']. If no (i.e. these are deliberately gated by customer-side is_admin), document it in the PRD so the operator knows admin@roobani.dev is the only principal who can hit them.",
+    "Per-page SEO meta cannot be HTTP-validated against the SPA. If the SEO acceptance criteria require server-rendered tags (for non-JS-rendering crawlers, social previews via Slack/WhatsApp/Twitter unfurl bots), add a pre-render step (e.g. react-snap) for /, /plans, /contact, /privacy, /terms, /cookies and the noindex auth routes. Otherwise, the C3 acceptance for per-page meta is best verified by a Playwright run in a follow-up frontend testing iteration.",
+    "When HUBSPOT_API_KEY lands, re-run TestCrmResync::test_41_resync_no_key_is_noop expecting ok=true and pending decremented; the same suite serves as a smoke test."
+  ],
+  "critical_code_review_comments": [
+    "server.py:1095 — admin_crm_resync uses Depends(require_admin) which checks customer users.is_admin, not admin_session/admin_users.access_level. Coupling _audit(admin_id=admin['admin_id'], ...) to a customer user dict produces an audit row whose admin_id is actually a user_id; the audit UI/regex will likely not match it. Consider await db.admin_users.find_one({email_lookup: dec(user['email_enc'])}) to translate, or change the dependency to current_admin.",
+    "server.py:1115/1133 — Both cursors apply .limit(limit) but iterate them serially under one limit. With limit=200, you can sync up to 200 contacts + 200 leads = 400 docs per call. Comment says 'limit' is the cap; either rename to per_type_limit or split the budget. Minor doc/clarity nit.",
+    "server.py:1190 — /api/sitemap.json is mounted on app, not api (path is /api/sitemap.json because it's manually prefixed). The trailing absence of /about is correct. Worth adding a unit test that diff'ing the static sitemap.xml route set vs the JSON mirror is automated in CI so the two cannot drift.",
+    "react-helmet-async client-side injection: with one Helmet emitting JSON-LD ItemList of N FinancialProducts on /plans, ensure the JSON-LD is computed once per render (memoise) — re-emitting on every state change will trigger Helmet's dedupe but still cost a parse on each render. Belt-and-braces, not a current bug."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase_c_seo_crm.py"],
+  "success_rate": {"backend": "19/19 (100%)", "frontend": "n/a (backend-only request; SPA Helmet meta requires browser to validate)"},
+  "test_credentials": "Customer-side admin: admin@roobani.dev / RoobaniAdmin#2026 (is_admin=true, used by require_admin). NOTE: the admin@roobani.com / Admin@Roobani2026! credential in the request belongs to admin_users (admin_session_token + MFA) and is NOT used by /admin/crm/*, /admin/contacts, /admin/leads — those are on the customer auth surface.",
+  "seed_data_creation": "Per-test contact/lead docs prefixed test_phasec_/TEST_RegC/TEST_RegL/TEST_PhaseC. Module-scope teardown best-effort deletes them via mongosh.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: `REACT_APP_BACKEND_URL=https://roobani-app.preview.emergentagent.com pytest backend/tests/test_phase_c_seo_crm.py -v`. Suite is self-contained, ~5s. Two test areas are explicitly out of scope of this iteration: (1) per-page Helmet SEO meta on /, /plans, /contact, /privacy, /terms, /cookies, /login, /signup, /auth/* — needs Playwright since CRA + react-helmet-async is client-side injection only; the static index.html shell is identical across routes. (2) /robots.txt on the public URL is overridden by the preview ingress CDN, so only the /api/sitemap.json mirror was asserted (as recommended by the request). Phase B suite (iteration_7) is independent and still passes. The CRM endpoints currently rely on the customer-side is_admin flag, not admin_users.access_level=0 — flagged as a minor consistency issue.",
+  "rca of the issue": "No functional defects found in Phase C scope. Two documentation/architecture observations: (a) CRM endpoints diverge from the rest of /admin/* by reading the customer session cookie, which means the only out-of-the-box principal is admin@roobani.dev; (b) per-page SEO tags are client-side only and therefore unverifiable from raw HTML — accept this for modern crawlers or add a pre-render step."
+}

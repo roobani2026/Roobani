@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Check, AlertCircle } from "lucide-react";
+import SEO from "../components/SEO";
 
 export default function EmailVerify() {
   const [params] = useSearchParams();
@@ -40,6 +41,7 @@ export default function EmailVerify() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 pt-32 pb-16" data-testid="email-verify-page">
+      <SEO title="Verify Email" description="Verify your Roobani account email address." noindex />
       <div className="w-full max-w-md text-center">
         {state.loading && (
           <div className="rb-mono text-[11px] uppercase tracking-[0.22em] text-rb-text2">Verifying your email ...</div>

@@ -1,9 +1,15 @@
 import React from "react";
 import LegalLayout from "../components/LegalLayout";
+import SEO from "../components/SEO";
 
 export default function Cookies() {
   return (
-    <LegalLayout
+    <>
+      <SEO
+        title="Cookie Policy"
+        description="How Roobani Capital uses cookies and similar technologies. Categories: strictly necessary, functional, analytics, and marketing. How to manage your preferences."
+      />
+      <LegalLayout
       testid="cookies-page"
       eyebrow="Cookies"
       title="Cookie Policy"
@@ -77,5 +83,6 @@ export default function Cookies() {
         <a href="mailto:privacy@roobani.com">privacy@roobani.com</a>.
       </p>
     </LegalLayout>
+    </>
   );
 }

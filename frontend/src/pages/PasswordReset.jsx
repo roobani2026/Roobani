@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { Logo } from "../components/Logo";
+import SEO from "../components/SEO";
 
 export default function PasswordReset() {
   const [email, setEmail] = useState("");
@@ -21,6 +22,7 @@ export default function PasswordReset() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 pt-32 pb-16" data-testid="password-reset-page">
+      <SEO title="Password Reset" description="Reset your Roobani account password." noindex />
       <div className="w-full max-w-md">
         <Link to="/" className="inline-flex"><Logo size={56} /></Link>
         <div className="rb-mono text-[11px] uppercase tracking-[0.22em] text-rb-text2 mt-10">Password Reset</div>

@@ -103,20 +103,66 @@ SEO, performance, observability, and support channels. Work is being delivered i
 - **Sidebar footer** now surfaces a 2FA badge (green ON / red OFF + remaining recovery codes).
 
 ## Backlog (next phases)
-### P0 — Phase C: Public site & brand
-- Inject brand character (logo, color palette, typography, hero copy) — needs
-  client-supplied assets or a temporary AI-generated brand kit.
-- Wire CTAs to real flows + a CRM (HubSpot OR Mailchimp).
-- SEO: per-page meta, OG tags, sitemap.xml, robots.txt, image alt-text.
-- Performance: WebP/SVG, purge unused CSS, lazy-load, code-split.
+### 2026-06-12 — Phase C (partial): Public site & brand
+Delivered in this iteration — all key-free items (C1–C4). C5 (HubSpot CRM)
+shape is wired and waiting on the production key.
+
+- **C1 — Brand character** (done earlier in this phase):
+  Inline SVG logo lockup (Logo / LogoStacked / LogoMark), navy + warm gold +
+  cream palette, Fraunces (display) + Manrope (body) + JetBrains Mono (eyebrows)
+  type stack, hero copy "A portfolio manager. Not a robo-advisor.".
+- **C2 — CTAs to real flows** (done earlier in this phase):
+  Hero, Plans, Footer, LeadForm and Contact form all wired to `POST /api/leads`
+  and `POST /api/contact` with encrypted PII at rest and admin views at
+  `/admin/leads`, `/admin/contacts`.
+- **C3 — SEO** (this iteration):
+  - `<SEO/>` helmet helper component (per-page title · Roobani, clamped 165-char
+    description, canonical, OG, Twitter card, optional JSON-LD).
+  - SEO applied to all public routes: Home (FinancialService LD), Plans
+    (ItemList of FinancialProduct LD), Contact (ContactPage LD + canonical
+    forced to `/contact` so /about is not duplicate-indexed), Privacy, Terms,
+    Cookies. Login, Signup, PasswordReset, PasswordResetConfirm, EmailVerify
+    all carry `noindex` via Helmet.
+  - `public/sitemap.xml` upgraded: `lastmod` per URL, image:image annotations
+    on the hero + plan thumbnails, /about removed (canonicalised to /contact).
+  - `public/robots.txt` already shipped earlier — disallows /admin, /dashboard,
+    /auth, /fund and points to the sitemap.
+  - `index.html` cleaned of duplicate description/canonical/OG so Helmet is the
+    single source of truth per route; a single fallback description is kept for
+    non-JS crawlers.
+  - Backend `/api/sitemap.json` mirror updated to match the static sitemap.
+- **C4 — Performance** (this iteration):
+  - Switched all in-page imagery (`data/plans.js`, Home hero, Contact about
+    visual) from `.png` to the existing `.webp` assets (~30–70% smaller per
+    image, same dimensions).
+  - Image alt text audited — every `<img>` in the public tree has descriptive
+    alt, every admin/dashboard QR/avatar has a functional alt.
+  - Admin tree already code-split via `React.lazy()` + `Suspense` (`AdminLogin`,
+    `AdminLayout`, all admin pages). Customer routes stay in the main bundle
+    because they're the hot path.
+  - Lazy `<img loading="lazy">` on below-the-fold images (steps, testimonials,
+    contact visual), `loading="eager"` + `fetchpriority="high"` on the hero.
+- **C5 — CRM (HubSpot) shape only**:
+  - `POST /api/contact` and `POST /api/leads` already fire
+    `asyncio.create_task(_crm_push_contact(...))` after persisting locally.
+    With no `HUBSPOT_API_KEY`, the function logs and no-ops — submissions stay
+    in `db.contact_submissions` and `db.leads` with `crm_synced=false`.
+  - New super-admin endpoints (`/api/admin/crm/status`,
+    `POST /api/admin/crm/resync?limit=200`): when the key lands, one POST
+    backfills every queued submission via HubSpot's upsert-by-email contacts
+    API. Audit row emitted for the backfill.
+
+### P0 carryover (waiting on client keys)
+- **C5 — HubSpot live**: drop `HUBSPOT_API_KEY` into `backend/.env`, restart,
+  hit `POST /api/admin/crm/resync`. Done.
 
 ### P1 — Phase D: Observability & support
 - Analytics (PostHog OR GA4) + Sentry for crash tracking.
 - Support channel: support@roobani.com wiring + Telegram bot + FAQ accordion.
 
 ## Open questions for the client
-- Brand assets (logo SVG, palette, typography, screenshots, rewritten copy)?
-- CRM choice (HubSpot vs Mailchimp)?
+- HubSpot Private App API key (Settings → Integrations → Private Apps → scopes:
+  `crm.objects.contacts.read`, `crm.objects.contacts.write`)?
 - Analytics choice (PostHog vs GA4)?
 - Live-chat: Crisp / Intercom / Tawk.to (free) — which? And the Telegram bot
   token (from @BotFather)?

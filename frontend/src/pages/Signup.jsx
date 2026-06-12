@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Eye, EyeOff } from "lucide-react";
 import { Logo } from "../components/Logo";
+import SEO from "../components/SEO";
 
 function GoogleIcon() {
   return (
@@ -69,6 +70,11 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2" data-testid="signup-page">
+      <SEO
+        title="Open Account"
+        description="Open your Roobani client account. KYC in 48 hours, paired with a dedicated portfolio manager."
+        noindex
+      />
       <div className="flex items-center justify-center p-8 md:p-16 pt-32 md:pt-32">
         <div className="w-full max-w-md">
           <Link to="/" className="inline-flex"><Logo size={36} /></Link>

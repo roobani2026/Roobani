@@ -1,9 +1,15 @@
 import React from "react";
 import LegalLayout from "../components/LegalLayout";
+import SEO from "../components/SEO";
 
 export default function Privacy() {
   return (
-    <LegalLayout
+    <>
+      <SEO
+        title="Privacy Policy"
+        description="How Roobani Capital collects, uses, and protects personal information of clients and visitors. KYC, communications, cookies, and your rights under GDPR and Kenya Data Protection Act."
+      />
+      <LegalLayout
       testid="privacy-page"
       eyebrow="Privacy"
       title="Privacy Policy"
@@ -106,5 +112,6 @@ export default function Privacy() {
         <a href="mailto:privacy@roobani.com">privacy@roobani.com</a>.
       </p>
     </LegalLayout>
+    </>
   );
 }
