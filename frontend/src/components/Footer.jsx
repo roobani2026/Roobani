@@ -25,6 +25,7 @@ export default function Footer() {
               { to: "/", label: "Home" },
               { to: "/plans#foundation", label: "Investment Plans" },
               { to: "/about", label: "About" },
+              { to: "/faq", label: "FAQ" },
               { to: "/contact", label: "Contact" },
             ].map((l) => (
               <li key={l.to}><Link to={l.to} className="rb-underline">{l.label}</Link></li>

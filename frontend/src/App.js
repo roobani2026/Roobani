@@ -24,6 +24,7 @@ import AuthCallback from "./pages/AuthCallback";
 import PasswordReset from "./pages/PasswordReset";
 import PasswordResetConfirm from "./pages/PasswordResetConfirm";
 import EmailVerify from "./pages/EmailVerify";
+import FAQ from "./pages/FAQ";
 import Fund from "./pages/Fund";
 // Admin tree is code-split: it's only loaded when an admin actually navigates
 // to /admin/*, keeping the customer-facing bundle smaller.
@@ -43,6 +44,7 @@ import { AuthProvider } from "./lib/auth";
 import { AdminAuthProvider } from "./lib/adminAuth";
 import { ThemeProvider } from "./lib/theme";
 import { CurrencyProvider } from "./lib/currency";
+import { track } from "./lib/observability";
 import { Toaster } from "sonner";
 
 function AdminLoading() {
@@ -58,6 +60,29 @@ function ScrollToTop() {
   React.useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [pathname]);
+  return null;
+}
+
+/**
+ * Fires a `page.viewed` Mixpanel event on every client-side route change.
+ * Doesn't fire for admin routes (those are operator activity, not funnel)
+ * and uses the document title which Helmet has already set, giving us
+ * semantic event names instead of raw paths.
+ */
+function PageViewTracker() {
+  const { pathname, search } = useLocation();
+  React.useEffect(() => {
+    if (pathname.startsWith("/admin")) return;
+    // Wait a tick so Helmet has had a chance to set the page title.
+    const t = setTimeout(() => {
+      track("page.viewed", {
+        path: pathname,
+        search: search || null,
+        title: typeof document !== "undefined" ? document.title : null,
+      });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [pathname, search]);
   return null;
 }
 
@@ -95,6 +120,7 @@ function AppRouter() {
   return (
     <>
       <ScrollToTop />
+      <PageViewTracker />
       <MaintenanceBanner />
       {!isAuthRoute && <Navbar />}
       <main className="min-h-screen">
@@ -110,6 +136,7 @@ function AppRouter() {
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/cookies" element={<Cookies />} />
+            <Route path="/faq" element={<FAQ />} />
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="transactions" element={<DashTransactions />} />

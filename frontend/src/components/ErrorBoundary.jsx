@@ -1,11 +1,14 @@
 import React from "react";
+import { captureFromBoundary } from "@/lib/observability";
 
 /**
  * Top-level React Error Boundary.
  *
  * Catches render-time errors in any descendant so a single component crash
  * doesn't take down the entire admin UI. In dev the stack is printed to the
- * console; in production we keep the message terse for the user.
+ * console; in production we keep the message terse for the user. When
+ * Sentry is enabled (REACT_APP_SENTRY_DSN present), every caught error is
+ * also reported via `captureFromBoundary` with the `scope` tag.
  *
  * Usage:
  *   <ErrorBoundary scope="admin"> ... </ErrorBoundary>
@@ -23,6 +26,7 @@ export default class ErrorBoundary extends React.Component {
   componentDidCatch(error, info) {
     // eslint-disable-next-line no-console
     console.error("[ErrorBoundary]", this.props.scope || "root", error, info?.componentStack);
+    captureFromBoundary(error, info, this.props.scope || "root");
   }
 
   handleReset = () => {

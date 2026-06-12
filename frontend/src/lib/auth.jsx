@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useContext, createContext, useCallback } from "react";
 import { api } from "../lib/api";
+import { identify, resetAnalytics } from "../lib/observability";
 
 const AuthContext = createContext({ user: null, loading: true, refresh: async () => {}, logout: async () => {} });
 
@@ -17,6 +18,11 @@ export function AuthProvider({ children }) {
     try {
       const r = await api.get("/auth/me");
       setUser(r.data);
+      // Stitch anonymous → authenticated in Mixpanel + give Sentry the user
+      // context (id only — sendDefaultPii is off so we never get the email).
+      if (r.data?.user_id) {
+        identify(r.data.user_id, { user_id: r.data.user_id });
+      }
     } catch (e) {
       setUser(null);
     } finally {
@@ -27,6 +33,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try { await api.post("/auth/logout", {}); } catch (e) { /* ignore */ }
     setUser(null);
+    resetAnalytics();
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);

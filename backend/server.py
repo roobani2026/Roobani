@@ -52,6 +52,17 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from starlette.middleware.cors import CORSMiddleware
 
+from observability import (
+    alert as ops_alert,
+    capture_warning,
+    init_mixpanel,
+    init_sentry,
+    init_telegram,
+    people_set as mp_people_set,
+    status as observability_status,
+    track as mp_track,
+)
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -95,6 +106,10 @@ def dec(value: str) -> str:
 
 
 # App + router
+# Sentry must init BEFORE the FastAPI instance so its integration can hook
+# into the app lifecycle. _redact is forward-declared (defined ~line 1399);
+# we pass it via a thunk so init time isn't blocked on the import order.
+init_sentry(redact_fn=lambda d: _redact(d) if isinstance(d, dict) else d)
 app = FastAPI(title="Roobani API")
 api = APIRouter(prefix="/api")
 
@@ -357,6 +372,12 @@ async def startup() -> None:
         logger.info("Seeded admin@roobani.dev")
     logger.info("Mongo indexes ensured.")
 
+    # Phase D observability bootstrap. Each call is a no-op when its env
+    # vars are absent; we log the on/off state ONCE here so the boot log
+    # is the single place to see what's hot.
+    init_mixpanel()
+    init_telegram()
+
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
@@ -558,6 +579,10 @@ async def register(payload: RegisterIn, response: Response, _rl: None = Depends(
     result: dict[str, Any] = {"user": _public_user(doc)}
     if not RESEND_API_KEY:
         result["email_verification_token"] = verify_token
+    # Phase D observability.
+    mp_track(user_id, "signup.completed", {"auth_provider": "email"})
+    mp_people_set(user_id, {"$name": payload.full_name.strip(), "signup_date": doc["created_at"]})
+    ops_alert("New signup", payload.full_name.strip(), user_id=user_id)
     return result
 
 
@@ -588,6 +613,7 @@ async def login(payload: LoginIn, response: Response, _rl: None = Depends(rate_l
         {"$set": {"failed_attempts": 0, "locked_until": None, "updated_at": now_utc().isoformat()}},
     )
     await _create_session(user["user_id"], response)
+    mp_track(user["user_id"], "login.succeeded", {"method": "password"})
     return {"user": _public_user(user)}
 
 
@@ -844,6 +870,12 @@ async def checkout_fund(payload: CheckoutFundIn, request: Request, user: dict = 
         "created_at": now_utc().isoformat(),
         "updated_at": now_utc().isoformat(),
     })
+    mp_track(user["user_id"], "deposit.initiated", {
+        "amount": float(payload.amount),
+        "currency": currency,
+        "plan_slug": payload.plan_slug,
+        "payment_method": payload.payment_method,
+    })
     return {"url": sess.url, "session_id": sess.session_id, "currency": currency}
 
 
@@ -881,6 +913,16 @@ async def checkout_status(session_id: str, request: Request, user: dict = Depend
             "Funding completed",
             f"Your deposit of {float(rec['amount']):,.2f} {rec.get('currency','usd').upper()} into {rec['plan_slug']} is now live.",
             {"session_id": session_id, "plan_slug": rec["plan_slug"]},
+        )
+        mp_track(user["user_id"], "deposit.settled", {
+            "amount": float(rec["amount"]),
+            "currency": rec.get("currency", "usd"),
+            "plan_slug": rec["plan_slug"],
+        })
+        ops_alert(
+            "Deposit settled",
+            f"{float(rec['amount']):,.2f} {rec.get('currency','usd').upper()} → {rec['plan_slug']}",
+            user_id=user["user_id"],
         )
     return {"payment_status": s.payment_status, "status": s.status, "amount": s.amount_total / 100.0 if s.amount_total else rec.get("amount"), "plan_slug": rec.get("plan_slug"), "currency": rec.get("currency", "usd")}
 
@@ -1009,6 +1051,20 @@ async def create_lead(payload: LeadIn, request: Request, _rl: None = Depends(rat
         "lifecyclestage": "marketingqualifiedlead",
         "source": payload.source_page or "leadform",
     }))
+    # Phase D observability.
+    mp_track(lead_id, "lead.submitted", {
+        "budget_range": payload.budget_range,
+        "investment_goal": payload.investment_goal,
+        "preferred_contact": payload.preferred_contact,
+        "source_page": payload.source_page or "leadform",
+    })
+    ops_alert(
+        "New lead",
+        f"{payload.full_name} ({payload.budget_range})",
+        goal=payload.investment_goal,
+        contact=payload.preferred_contact,
+        source=payload.source_page or "leadform",
+    )
     return {"lead_id": lead_id, "received_at": doc["created_at"]}
 
 
@@ -1044,6 +1100,9 @@ async def create_contact(payload: ContactIn, request: Request, _rl: None = Depen
         "lifecyclestage": "lead",
         "source": "contact_form",
     }))
+    # Phase D observability.
+    mp_track(cid, "contact.submitted", {"subject": payload.subject.strip()})
+    ops_alert("New contact form", f"{payload.name} — {payload.subject}")
     return {"contact_id": cid, "received_at": doc["created_at"]}
 
 
@@ -1105,6 +1164,7 @@ async def sitemap_json() -> dict:
         {"loc": "/", "priority": 1.0, "changefreq": "weekly"},
         {"loc": "/plans", "priority": 0.9, "changefreq": "weekly"},
         {"loc": "/contact", "priority": 0.7, "changefreq": "monthly"},
+        {"loc": "/faq", "priority": 0.6, "changefreq": "monthly"},
         {"loc": "/privacy", "priority": 0.3, "changefreq": "yearly"},
         {"loc": "/terms", "priority": 0.3, "changefreq": "yearly"},
         {"loc": "/cookies", "priority": 0.3, "changefreq": "yearly"},
@@ -1730,6 +1790,23 @@ async def admin_crm_status(admin: dict = Depends(require_access_0)) -> dict:
         "pending": {"contacts": pending_contacts, "leads": pending_leads},
         "synced": {"contacts": synced_contacts, "leads": synced_leads},
     }
+
+
+@api.get("/admin/integrations/status")
+async def admin_integrations_status(admin: dict = Depends(require_access_0)) -> dict:
+    """Single pane of glass for which 3rd-party integrations are configured.
+
+    Returns the same shape as `observability.status()` plus stripe + the
+    HubSpot CRM queue depths. Powers the admin UI's "Integrations" badge.
+    """
+    base = observability_status()
+    base["stripe"] = {"configured": bool(os.environ.get("STRIPE_API_KEY", "").strip())}
+    base["hubspot"]["pending"] = {
+        "contacts": await db.contact_submissions.count_documents({"crm_synced": False}),
+        "leads": await db.leads.count_documents({"crm_synced": False}),
+    }
+    return base
+
 
 
 
@@ -3043,6 +3120,17 @@ async def create_withdrawal(payload: CustomerWithdrawalIn, user: dict = Depends(
         "Withdrawal request submitted",
         f"Your withdrawal of {payload.amount:.2f} {payload.currency.upper()} is pending review.",
         {"withdrawal_id": wid},
+    )
+    mp_track(user["user_id"], "withdrawal.requested", {
+        "amount": float(payload.amount),
+        "currency": payload.currency.lower(),
+        "destination_type": payload.destination_type,
+    })
+    ops_alert(
+        "Withdrawal requested",
+        f"{payload.amount:.2f} {payload.currency.upper()} → {payload.destination_type}",
+        withdrawal_id=wid,
+        user_id=user["user_id"],
     )
     return {k: v for k, v in doc.items() if k not in {"_id", "bank_account_name", "bank_account_number"}}
 
