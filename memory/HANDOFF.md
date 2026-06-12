@@ -45,9 +45,17 @@ provide keys for Phase D (PostHog/GA4, Sentry, Telegram, Crisp).
   restart backend, hit `POST /api/admin/crm/resync` once, monitor
   `GET /api/admin/crm/status` for `configured=true` + `pending → 0`.
 
-### Phase D (not started — P1)
-- Analytics (PostHog or GA4) + Sentry crash tracking.
-- Support: `support@roobani.com` wiring + Telegram bot + FAQ accordion.
+### Phase D (not started — P1, waiting on client keys)
+- **Analytics: Mixpanel** (chosen 2026-06-12 — supersedes PostHog/GA4
+  question). Needs `MIXPANEL_TOKEN`. When implementing: `mixpanel-browser`
+  on the frontend, `mixpanel` (Python) on the backend, both reading the
+  same token from env. Instrument: page_view, lead_submitted,
+  signup_started/completed, mfa_setup_started/completed, deposit_initiated,
+  withdrawal_requested, plan_viewed, contact_form_submitted.
+- Sentry crash tracking (needs `SENTRY_DSN`).
+- Support: `support@roobani.com` wiring + Telegram bot (BotFather token)
+  + FAQ accordion.
+- Live chat: Crisp / Intercom / Tawk.to — still open.
 
 ---
 

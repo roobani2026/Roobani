@@ -164,13 +164,27 @@ HUBSPOT_API_KEY lands).
   hit `POST /api/admin/crm/resync`. Done.
 
 ### P1 — Phase D: Observability & support
-- Analytics (PostHog OR GA4) + Sentry for crash tracking.
-- Support channel: support@roobani.com wiring + Telegram bot + FAQ accordion.
+- **Analytics: Mixpanel** (client choice, recorded 2026-06-12 — supersedes
+  the earlier PostHog/GA4 question). Implementation note for the agent
+  picking this up: use `mixpanel-browser` on the frontend (event tracking +
+  user identify) and `mixpanel` (Python) on the backend for server-side
+  events (lead conversion, deposit, withdrawal). Use a single
+  `MIXPANEL_TOKEN` env var on both sides. Key events to instrument:
+  `page_view`, `lead_submitted`, `signup_started`, `signup_completed`,
+  `mfa_setup_started`, `mfa_setup_completed`, `deposit_initiated`,
+  `withdrawal_requested`, `plan_viewed`, `contact_form_submitted`.
+- Crash tracking: Sentry (still recommended — covers JS errors on
+  frontend + Python exceptions on backend; needs `SENTRY_DSN`).
+- Support channel: `support@roobani.com` wiring + Telegram bot
+  (BotFather token) + FAQ accordion.
+- Live chat: Crisp / Intercom / Tawk.to (free) — still open.
 
 ## Open questions for the client
 - HubSpot Private App API key (Settings → Integrations → Private Apps → scopes:
   `crm.objects.contacts.read`, `crm.objects.contacts.write`)?
-- Analytics choice (PostHog vs GA4)?
+- **Analytics — Mixpanel** ✅ chosen 2026-06-12. Needs `MIXPANEL_TOKEN`
+  (Mixpanel → Project Settings → Access Keys → Project Token).
+- Sentry DSN (recommended for crash tracking)?
 - Live-chat: Crisp / Intercom / Tawk.to (free) — which? And the Telegram bot
   token (from @BotFather)?
 - Stripe live key + Binance Pay merchant credentials — when client is onboarded.
