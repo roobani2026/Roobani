@@ -1,0 +1,39 @@
+{
+  "summary": "End-to-end test of Roobani: 17/17 backend tests pass and all critical frontend flows verified (home, plans, signup→dashboard, login→dashboard, contact, /about route, dashboard auth redirect, lead form submission with PII encryption, sharp corners, no em dashes, navbar glass on scroll). One blocking issue: the documented test credentials use the reserved TLD '.test' which Pydantic's EmailStr rejects (422), so investor@roobani.test cannot register or log in as-is. After substituting investor@roobani.dev all flows work perfectly.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "/api/auth/register and /api/leads /contact /login", "issue": "Documented test credentials investor@roobani.test FAIL validation. Pydantic email-validator rejects reserved-use TLD .test with HTTP 422 ('special-use or reserved name'). Either update /app/memory/test_credentials.md to use @roobani.dev (or similar), OR configure EmailStr with allow_special_use=True. Currently no email on a reserved TLD (.test, .invalid, .localhost) can be used anywhere in the app.", "priority": "HIGH"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "LoginForm password show/hide", "issue": "Show-password eye toggle is rendered but lacks data-testid='login-show-password' (count=0). Other login testids OK.", "selector": "[data-testid='login-show-password']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Global", "issues": ["All sampled buttons/cards have border-radius 0px (sharp corners) - PASS", "No em dash (U+2014) present on Home - PASS", "Navbar HEADER picks up rb-glass class after scroll > 16px - PASS"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Update /app/memory/test_credentials.md to use a non-reserved TLD (e.g. investor@roobani.dev) OR allow special-use TLDs in EmailStr so the documented credentials work. This blocks any QA/Emergent agent that tries to register/login with the documented account.",
+    "Add data-testid='login-show-password' to the password show/hide toggle on Login page (minor)."
+  ],
+  "critical_code_review_comments": [
+    "PII encryption verified: leads collection persists only email_enc / phone_enc Fernet ciphertext (gAAAAA...), no plaintext email/phone field. Users collection stores email_enc (encrypted) plus email_lookup (lowercase plaintext) - email_lookup is necessary for unique index/login lookup, which is acceptable.",
+    "Pydantic v2 EmailStr by default uses email-validator which rejects .test/.invalid/.localhost TLDs as 'special-use reserved'. This silently breaks the documented test credentials. Add `from pydantic import EmailStr` with a custom validator, or use `email_validator.validate_email(..., allow_special=True)`, or update the credentials to use a valid TLD.",
+    "Account lockout works correctly: after 5 failed attempts, the next attempt (even with correct password) returns 423 with 15-minute lock and resets failed_attempts. Confirmed via test_lockout_after_five_failures.",
+    "/api/auth/session correctly returns 401 for invalid Emergent session_id.",
+    "Bearer-token authentication works (cookie session_token can also be sent as Authorization: Bearer).",
+    "Market endpoints: /api/market/crypto returns BTC + ETH with sparkline. /api/market/stocks returns indices/commodities/forex with full schema. 45s cache observed."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py", "/app/backend/tests/__init__.py"],
+  "success_rate": {"backend": "100% (17/17 pytest cases)", "frontend": "~95% (only missing login-show-password testid)"},
+  "test_credentials": "Use investor@roobani.dev / Roobani#2026 (NOT .test). The .test TLD in the saved credentials file is rejected by EmailStr.",
+  "seed_data_creation": "Created investor@roobani.dev / Roobani#2026 via /api/auth/register during testing. Multiple TEST_-prefixed leads, contacts, and throwaway users were created.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live at /app/backend/tests/backend_test.py. They use @roobani.dev addresses to dodge the .test TLD validation. Frontend lead form submission works end-to-end; the country code select uses values like '+91' (select_option index=0 picked +1). Dashboard redirects to /login when session cookie is missing. Signup auto-logs in and routes to /dashboard. Login error message uses the literal string 'Invalid email or password'.",
+  "rca of the issue": "RCA - Test credential mismatch: Pydantic v2 + email-validator strictly rejects TLDs in the IANA reserved list (.test, .invalid, .example, .localhost). /app/memory/test_credentials.md documents investor@roobani.test which causes /api/auth/register, /api/auth/login, /api/leads, /api/contact, and any EmailStr-validated endpoint to return 422. Reproduction: POST /api/auth/register with email=investor@roobani.test → 422 'value is not a valid email address: The part after the @-sign is a special-use or reserved name'. Mitigation: (a) change documented credentials to @roobani.dev, OR (b) replace EmailStr with a custom validator that calls email_validator.validate_email(email, allow_special=True), OR (c) configure email_validator globally."
+}

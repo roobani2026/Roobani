@@ -1,0 +1,55 @@
+{
+  "summary": "Iteration 3: validated Customer Dashboard (Phase 3) — backend 28/28 pytest pass for /portfolio/summary, /transactions, /withdrawals (POST+GET with no-holdings + auth + cross-user isolation), /kyc/upload (mime/empty/oversize/doc-type validation + notification creation + user kyc_status flip to submitted), /kyc/status, /notifications (list, mark-single, mark-all, 404 unknown id), /profile (GET+PATCH persist). Regression for /api/holdings, /api/auth/me, /api/admin/auth/me all pass. Frontend: all 6 sub-pages (Portfolio, Transactions, Withdraw, KYC, Notifications, Profile) render with correct data-testids, subnav active state highlights the current page, bank/crypto destination toggle swaps form fields, withdraw form returns the documented 'No holdings available to withdraw against.' error inline, KYC upload flips badge from 'Pending Submission' to 'Under Review' and creates a notification (unread badge shows 1), profile PATCH succeeds. Transactions empty state renders.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "DashboardSubNav notif-unread-badge",
+        "issue": "After the user clicks 'Mark all read' on /dashboard/notifications, the subnav unread badge does not refresh until the next 30s poll. The in-page badge/count updates, but the persistent subnav badge keeps showing the stale count (e.g., '1') for up to 30s. Fix: emit a window event or call a parent refetch from DashNotifications after POST /api/notifications/read_all so the subnav re-fetches immediately instead of waiting for its next interval.",
+        "selector": "[data-testid=\"notif-unread-badge\"]",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Dashboard",
+        "issues": ["Recharts still emits 'width(-1) and height(-1) of chart should be greater than 0' warnings (carried over from iteration 2, cosmetic)."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_customer_dashboard.py",
+    "/app/test_reports/pytest/pytest_iter3.xml"
+  ],
+  "action_items": [
+    "(LOW) Refresh the subnav unread badge immediately after the user marks notifications read instead of waiting for the 30s poll. Emit a custom 'notif:refresh' event from DashNotifications mark-all handler and listen for it in DashboardSubNav.",
+    "(Carry-over from iteration 2) EmailVerify.jsx StrictMode double-fire is still open if not addressed by main agent.",
+    "(Cosmetic) Set min-height on Recharts ResponsiveContainer wrappers to silence width(-1)/height(-1) warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now ~2160 lines — well past the 700-line guideline. Split into routes/customer_dashboard.py (the new Phase 3 block from line 1779), routes/auth.py, routes/checkout.py, routes/admin.py, routes/market.py with deps.py for current_user and db handles.",
+    "create_withdrawal logic: 'No holdings available' check fires before destination-field validation. That means a user with no holdings will never see the bank/crypto validation errors — fine for now, but document this in API spec because the frontend test cases expected destination validation independently.",
+    "kyc_upload writes file to disk BEFORE inserting the DB record. If the DB insert fails, the file is orphaned on disk. Wrap in try/except and unlink the file on Mongo failure, or insert DB first with status='uploading' then promote after successful write.",
+    "KYC_ALLOWED_MIME set is fine, but the extension is derived from filename with a naive split('.')[-1].lower()[:8] — a maliciously named file 'a.tar.gz' becomes ext='gz' (acceptable), but consider sanitising further. The stored file is saved with a UUID prefix so directory traversal is not possible — good.",
+    "Withdrawals model encrypts bank_account_name and bank_account_number via enc() — good. crypto_wallet_address is stored in plain text — confirm this is the intended policy (wallet addresses are public, so plain is fine).",
+    "_notify helper is good and reused from checkout_status (deposit success) and admin_decide_withdrawal — confirmed via grep.",
+    "GET /api/withdrawals correctly scopes to {customer_user_id: user.user_id} — cross-user isolation test passed."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_customer_dashboard.py"
+  ],
+  "success_rate": {
+    "backend": "100% (28/28 customer-dashboard tests + iteration 2 regression suite still green)",
+    "frontend": "~97% (all 6 sub-pages render, all testids present, all flows tested work; one LOW polling-delay bug on subnav badge)"
+  },
+  "test_credentials": "admin@roobani.com / Admin@Roobani2026! (super admin). Customer test user dashtest_1781237755@example.com / Test@1234 from test_credentials.md. Test suite creates throwaway TEST_*@roobani.dev users.",
+  "seed_data_creation": "Created ~5 throwaway TEST_freshcustomer/isoA/isoB/uitest @roobani.dev users plus uploaded sample KYC docs into /app/backend/uploads/kyc/<user_id>/. Did not modify any seeded data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with REACT_APP_BACKEND_URL exported (NOT defaulted). The canonical command: `cd /app && REACT_APP_BACKEND_URL=$(grep REACT_APP_BACKEND_URL frontend/.env | cut -d= -f2) python -m pytest backend/tests/test_customer_dashboard.py -v`. Backend endpoints under /api: portfolio/summary, transactions (kind=deposit|withdrawal|all), withdrawals (POST+GET — POST 400s when total invested<=0), kyc/upload (Form+File multipart), kyc/status, notifications (+ /{id}/read + /read_all), profile (GET+PATCH). Frontend routes nested under /dashboard/<sub> via DashboardLayout. data-testids match those listed in the review_request other_misc_info exactly.",
+  "rca of the issue": "Subnav notif-unread-badge stale: DashboardSubNav fetches /api/notifications periodically (every 30s) to populate the badge. When the user clicks 'Mark all read' on /dashboard/notifications, the in-page list refreshes (correct), but the DashboardSubNav component's interval has not yet ticked, so its local 'unread_count' state is still the stale value. The two components do not share state and there is no event bus connecting them. Mitigation: (a) lift unread state to DashboardLayout and pass setter to DashNotifications; (b) emit a window CustomEvent('notif:refresh') in DashNotifications and listen in DashboardSubNav; (c) reduce poll interval to ~5s on the notifications page only. Option (b) is the lightest touch."
+}

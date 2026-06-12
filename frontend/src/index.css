@@ -2,114 +2,445 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Fraunces:opsz,wght@9..144,300..900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+
+:root {
+  /* Theme-aware tokens (light is the default) */
+  --rb-bg: #FAFAF8;
+  --rb-bg-2: #F0EDE6;
+  --rb-card: #FFFFFF;
+  --rb-text: #1C1C1E;
+  --rb-text-2: #6B6B6B;
+  --rb-border: #E0DDD5;
+  --rb-heading: #1A1F3D; /* navy in light, light cream in dark */
+
+  /* Brand-fixed (do not switch between modes) */
+  --rb-navy: #1A1F3D;
+  --rb-gold: #C9A84C;
+  --rb-teal: #2A9D8F;
+  --rb-success: #3A7D5C;
+  --rb-alert: #C0392B;
+  --rb-on-navy: #FAFAF8; /* stable light text for use on navy backgrounds */
+
+  /* shadcn vars retuned to light, sharp, navy */
+  --background: 60 11% 97%;
+  --foreground: 240 3% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 3% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 3% 11%;
+  --primary: 232 41% 17%;
+  --primary-foreground: 60 11% 97%;
+  --secondary: 44 18% 92%;
+  --secondary-foreground: 240 3% 11%;
+  --muted: 44 18% 92%;
+  --muted-foreground: 0 0% 42%;
+  --accent: 44 53% 54%;
+  --accent-foreground: 240 3% 11%;
+  --destructive: 6 64% 46%;
+  --destructive-foreground: 60 11% 97%;
+  --border: 40 18% 86%;
+  --input: 40 18% 86%;
+  --ring: 232 41% 17%;
+  --radius: 0px;
+}
+
+/* Dark theme overrides — keeps navy/gold brand identity intact */
+:root.dark,
+.dark {
+  --rb-bg: #0E1118;
+  --rb-bg-2: #161A24;
+  --rb-card: #1B2030;
+  --rb-text: #ECECEC;
+  --rb-text-2: #9A9A9A;
+  --rb-border: #2A2F3E;
+  --rb-heading: #ECECEC;
+
+  --background: 224 30% 7%;
+  --foreground: 60 11% 92%;
+  --card: 226 24% 14%;
+  --card-foreground: 60 11% 92%;
+  --popover: 226 24% 14%;
+  --popover-foreground: 60 11% 92%;
+  --primary: 44 53% 54%;
+  --primary-foreground: 232 41% 12%;
+  --secondary: 226 22% 18%;
+  --secondary-foreground: 60 11% 92%;
+  --muted: 226 22% 18%;
+  --muted-foreground: 0 0% 65%;
+  --accent: 44 53% 54%;
+  --accent-foreground: 232 41% 12%;
+  --destructive: 6 64% 52%;
+  --destructive-foreground: 60 11% 97%;
+  --border: 226 18% 22%;
+  --input: 226 18% 22%;
+  --ring: 44 53% 54%;
+}
+
+* {
+  border-color: hsl(var(--border));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body, #root {
+  background: var(--rb-bg);
+  color: var(--rb-text);
+}
+
 body {
-    margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  font-family: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  letter-spacing: -0.005em;
 }
 
-code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+::selection { background: var(--rb-navy); color: var(--rb-on-navy); }
+
+/* Subtle paper grain */
+.rb-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(28,28,30,0.035) 1px, transparent 1px);
+  background-size: 3px 3px;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+/* Marquee */
+@keyframes rb-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.rb-marquee { animation: rb-marquee 60s linear infinite; }
+.rb-marquee-fast { animation: rb-marquee 35s linear infinite; }
+
+/* Fade up on scroll */
+@keyframes rb-fadeup {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rb-fadeup { animation: rb-fadeup 700ms cubic-bezier(.2,.7,.2,1) both; }
+
+/* Smooth glass page transition between routes */
+@keyframes rb-page-enter {
+  0% {
+    opacity: 0;
+    filter: blur(14px) saturate(120%);
+    transform: translateY(12px) scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0) saturate(100%);
+    transform: translateY(0) scale(1);
+  }
+}
+.rb-page {
+  animation: rb-page-enter 560ms cubic-bezier(.2,.7,.2,1) both;
+  will-change: opacity, filter, transform;
+}
+
+/* Soft glass overlay sweep that pulses across the screen briefly on route change */
+@keyframes rb-page-veil {
+  0% { opacity: 0; transform: translateY(-8%); }
+  35% { opacity: 0.55; }
+  100% { opacity: 0; transform: translateY(8%); }
+}
+.rb-page-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.55) 45%, rgba(240,237,230,0.45) 75%, rgba(255,255,255,0.0) 100%);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  animation: rb-page-veil 520ms cubic-bezier(.2,.7,.2,1) both;
+}
+
+/* Underline reveal */
+.rb-underline {
+  position: relative;
+  display: inline-block;
+}
+.rb-underline::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 100%;
+  bottom: -4px;
+  height: 1px;
+  background: currentColor;
+  transition: right 380ms cubic-bezier(.2,.7,.2,1);
+}
+.rb-underline:hover::after { right: 0; }
+
+/* Sharp button base */
+.rb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  height: 3rem;
+  padding: 0 1.5rem;
+  font-family: 'Manrope', 'Inter', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  border-radius: 0 !important;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: color 220ms ease, border-color 220ms ease, background-color 220ms ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.rb-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Primary: filled navy with sweep fill */
+.rb-btn-primary {
+  background: var(--rb-navy);
+  color: var(--rb-on-navy);
+}
+.rb-btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--rb-gold);
+  transform: translateX(-101%);
+  transition: transform 420ms cubic-bezier(.2,.7,.2,1);
+  z-index: 0;
+}
+.rb-btn-primary:hover::before { transform: translateX(0); }
+.rb-btn-primary:hover { color: var(--rb-navy); }
+.rb-btn-primary > * { position: relative; z-index: 1; }
+
+/* Secondary: outlined with corner brackets */
+.rb-btn-secondary {
+  background: transparent;
+  color: var(--rb-text);
+  border: 1px solid var(--rb-text);
+}
+.rb-btn-secondary:hover {
+  color: var(--rb-navy);
+  border-color: var(--rb-gold);
+  background: rgba(201, 168, 76, 0.06);
+}
+.rb-btn-secondary::after, .rb-btn-secondary::before {
+  content: '';
+  position: absolute;
+  width: 8px; height: 8px;
+  border: 1px solid var(--rb-gold);
+  transition: transform 280ms ease, opacity 280ms ease;
+  opacity: 0;
+}
+.rb-btn-secondary::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.rb-btn-secondary::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.rb-btn-secondary:hover::before, .rb-btn-secondary:hover::after { opacity: 1; transform: scale(1.6); }
+
+/* Ghost text link with thick underline draw */
+.rb-btn-ghost {
+  background: transparent;
+  color: var(--rb-text);
+  padding: 0;
+  height: auto;
+  border: 0;
+  text-transform: none;
+  font-size: 0.95rem;
+  letter-spacing: 0;
+}
+.rb-btn-ghost .rb-line {
+  display: inline-block;
+  position: relative;
+}
+.rb-btn-ghost .rb-line::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -6px;
+  height: 2px;
+  background: var(--rb-text);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 320ms cubic-bezier(.2,.7,.2,1);
+}
+.rb-btn-ghost:hover .rb-line::after { transform: scaleX(1); }
+
+/* Slanted CTA */
+.rb-btn-slanted {
+  background: var(--rb-navy);
+  color: var(--rb-on-navy);
+  transform: skewX(-12deg);
+  padding: 0 1.6rem;
+}
+.rb-btn-slanted > span { transform: skewX(12deg); display: inline-flex; align-items: center; gap: 0.5rem; }
+.rb-btn-slanted:hover { background: var(--rb-gold); color: var(--rb-navy); }
+
+/* Glass card */
+.rb-glass {
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid rgba(224,221,213,0.6);
+}
+.dark .rb-glass {
+  background: rgba(22, 26, 36, 0.55);
+  border: 1px solid rgba(42, 47, 62, 0.6);
+}
+
+/* Sharp input */
+.rb-input {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rb-border);
+  padding: 0.85rem 0.25rem;
+  color: var(--rb-text);
+  font-family: 'Manrope', 'Inter', sans-serif;
+  font-size: 0.95rem;
+  border-radius: 0 !important;
+  outline: none;
+  transition: border-color 220ms ease;
+}
+.rb-input::placeholder { color: var(--rb-text-2); }
+.rb-input:focus { border-bottom-color: var(--rb-navy); }
+.rb-input-box {
+  display: block;
+  width: 100%;
+  background: var(--rb-card);
+  border: 1px solid var(--rb-border);
+  padding: 0.85rem 0.9rem;
+  color: var(--rb-text);
+  font-family: 'Manrope', 'Inter', sans-serif;
+  font-size: 0.95rem;
+  border-radius: 0 !important;
+  outline: none;
+  transition: border-color 220ms ease;
+}
+.rb-input-box:focus { border-color: var(--rb-navy); }
+
+/* Make native <select> dropdowns honor the active theme so the option list
+   never renders as white-on-white in dark mode. */
+select.rb-input,
+select.rb-input-box {
+  background-color: var(--rb-card);
+  color: var(--rb-text);
+}
+.rb-input option,
+.rb-input-box option {
+  background-color: var(--rb-card);
+  color: var(--rb-text);
+}
+.dark select.rb-input,
+.dark select.rb-input-box,
+.dark .rb-input option,
+.dark .rb-input-box option {
+  background-color: #161A24;
+  color: #FAFAF8;
+}
+
+.rb-label {
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  color: var(--rb-text-2);
+  display: block;
+  margin-bottom: 0.4rem;
+}
+
+.rb-display { font-family: 'Fraunces', 'DM Serif Display', serif; letter-spacing: -0.02em; line-height: 1; font-weight: 400; }
+.rb-mono { font-family: 'JetBrains Mono', monospace; }
+.rb-serif { font-family: 'Fraunces', serif; }
+
+/* Hairline divider */
+.rb-hr { height: 1px; background: var(--rb-border); width: 100%; }
+
+/* Ticker bar */
+.rb-ticker { background: var(--rb-navy); color: var(--rb-on-navy); }
+.rb-ticker .item { display: inline-flex; align-items: baseline; gap: 0.5rem; padding: 0 1.25rem; }
+.rb-ticker .sym { color: var(--rb-gold); font-weight: 500; letter-spacing: 0.08em; }
+.rb-ticker .up { color: #8ED1A5; }
+.rb-ticker .down { color: #E48F88; }
+
+/* Sharp card with brutalist shadow on hover */
+.rb-card {
+  background: var(--rb-card);
+  border: 1px solid var(--rb-border);
+  transition: box-shadow 280ms ease, transform 280ms ease, border-color 280ms ease;
+}
+.rb-card:hover {
+  border-color: var(--rb-navy);
+  box-shadow: 6px 6px 0 0 var(--rb-navy);
+  transform: translate(-3px, -3px);
+}
+
+/* Risk segmented bar */
+.rb-risk { display: inline-flex; gap: 4px; }
+.rb-risk span { width: 18px; height: 6px; background: var(--rb-border); }
+.rb-risk[data-level="1"] span:nth-child(-n+1),
+.rb-risk[data-level="2"] span:nth-child(-n+2),
+.rb-risk[data-level="3"] span:nth-child(-n+3),
+.rb-risk[data-level="4"] span:nth-child(-n+4),
+.rb-risk[data-level="5"] span:nth-child(-n+5) { background: var(--rb-navy); }
+
+/* Dark theme: invert risk bar so filled cells stand out on dark navy bg */
+.dark .rb-risk span { background: rgba(255, 255, 255, 0.12); }
+.dark .rb-risk[data-level="1"] span:nth-child(-n+1),
+.dark .rb-risk[data-level="2"] span:nth-child(-n+2),
+.dark .rb-risk[data-level="3"] span:nth-child(-n+3),
+.dark .rb-risk[data-level="4"] span:nth-child(-n+4),
+.dark .rb-risk[data-level="5"] span:nth-child(-n+5) { background: var(--rb-gold); }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--rb-bg); }
+::-webkit-scrollbar-thumb { background: var(--rb-border); }
+::-webkit-scrollbar-thumb:hover { background: var(--rb-text-2); }
+
+/* Selection */
+input, textarea, select { font-family: inherit; }
+
+
+/* =========================================================================
+   Dark-mode compatibility shims
+   Many components use Tailwind's literal `bg-white` for card surfaces and
+   `text-rb-navy` for headings. Those don't auto-swap via CSS variables, so
+   we override them when the `.dark` class is on <html>. Brand colors
+   (navy buttons, gold accents) are intentionally preserved.
+   ========================================================================= */
+
+.dark .bg-white { background-color: var(--rb-card) !important; }
+.dark .text-rb-navy { color: var(--rb-heading); }
+.dark .hover\:bg-white:hover { background-color: var(--rb-card) !important; }
+
+/* Recharts tooltip override (set inline in components) */
+.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: var(--rb-card) !important;
+  border-color: var(--rb-border) !important;
+  color: var(--rb-text) !important;
+}
+.dark .recharts-default-tooltip,
+.dark .recharts-default-tooltip *,
+.dark .recharts-default-tooltip .recharts-tooltip-label,
+.dark .recharts-default-tooltip .recharts-tooltip-item,
+.dark .recharts-default-tooltip .recharts-tooltip-item-list,
+.dark .recharts-default-tooltip .recharts-tooltip-item-name,
+.dark .recharts-default-tooltip .recharts-tooltip-item-separator,
+.dark .recharts-default-tooltip .recharts-tooltip-item-value,
+.dark .recharts-default-tooltip .recharts-tooltip-item-unit {
+  color: var(--rb-text) !important;
+}
+
+/* Subtle global tuning */
+.dark img.dark\:opacity-90 { opacity: 0.9; }
+.dark .rb-card:hover { box-shadow: 6px 6px 0 0 var(--rb-gold); }
+
+/* Smooth theme transition */
+html, body, .rb-card, .rb-input-box, .rb-glass, .rb-ticker {
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease;
 }
 
 @layer base {
-    :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
-    }
-    .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
-    }
-}
-
-@layer base {
-    * {
-        @apply border-border;
-    }
-    body {
-        @apply bg-background text-foreground;
-    }
-}
-
-@layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
-    }
-
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
-    }
+  [data-debug-wrapper="true"] { display: contents !important; }
 }

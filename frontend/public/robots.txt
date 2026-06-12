@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# Sensitive surfaces — kept out of the index. Crawlers should not waste
+# budget on authenticated routes, and we don't want indexed login pages
+# attracting credential-stuffing traffic from search.
+Disallow: /admin
+Disallow: /admin/
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /fund/
+
+Sitemap: https://roobani.com/sitemap.xml

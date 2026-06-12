@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 4: validated 3 new feature areas — (1) Backend /api/fx/rates + /api/contact (country_code/phone) — 5/5 pytest pass; (2) Frontend Cookie Consent banner with Accept/Reject/Manage + persistence; (3) Sitewide CurrencySwitcher (KES default, USD/EUR/GBP options, persists across reload via localStorage 'rb-currency'); (4) /privacy, /terms, /cookies routes render with matching data-testids; (5) Footer Privacy/Terms/Cookies links resolve to correct hrefs; (6) Contact form & LeadForm default country_code to KE (Kenya) and full contact submission shows contact-success.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Home / Contact (LeadForm, ContactForm country selects)",
+        "issues": [
+          "React hydration warning: '<span> cannot be a child of <option>'. Emergent dev-overlay injects a <span> inside each <option> for source-mapping. While this appears to be tooling-only (x-ve-dynamic/x-excluded attributes), it spams the console on every render and may degrade Lighthouse / break SSR if ever enabled. Consider stripping flag emoji into the option's text node directly (no wrapper span) or using a {flag} {label} string instead of a <span>."
+        ]
+      },
+      {
+        "screen": "Dashboard (carry-over from iteration 3)",
+        "issues": ["Recharts still emits width(-1)/height(-1) warnings — cosmetic."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_fx_and_contact.py",
+    "/app/test_reports/pytest/pytest_iter4.xml"
+  ],
+  "action_items": [
+    "(LOW) Strip the wrapper <span> inside <option> elements in LeadForm.jsx (line ~100) and Contact.jsx (line ~129). Either render `{c.flag} {c.label} ({c.dial})` as plain text or move the flag outside the <select> entirely. This silences the hydration warning currently emitted on every Home and Contact render.",
+    "(Carry-over) Recharts ResponsiveContainer min-height to silence width(-1) warnings."
+  ],
+  "critical_code_review_comments": [
+    "fx_rates endpoint correctly caches for 30s using _FX_CACHE; fallback rates {USD:1, EUR:0.92, GBP:0.79, KES:129} kick in cleanly if Yahoo is unreachable. updated_at is shared between cached calls — verified.",
+    "ContactIn model: country_code is bounded max_length=8 and phone max_length=32. phone_enc only created when phone is non-empty (good). Mongo doc stores country_code in plain text and phone encrypted — reasonable.",
+    "CookieConsent.jsx is clean and self-contained. Uses STORAGE_KEY='rb-cookie-consent' and VERSION=1 — if you ever change cookie categories, bumping VERSION will correctly force re-consent.",
+    "CurrencySwitcher.jsx prefixes testids with the data-testid prop value, so nav-currency-switcher-current / -menu / -option-{code} testids are all derivable — clean.",
+    "server.py is now ~2160 lines (no change since iteration 3) — split recommendation still stands."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_fx_and_contact.py"
+  ],
+  "success_rate": {
+    "backend": "100% (5/5 fx + contact tests)",
+    "frontend": "~100% (all 13 review_request UI assertions verified: cookie banner appear/manage/save/accept/reject/persist, currency-switcher default KES + USD swap + reload persistence, /privacy /terms /cookies routes with testids, footer links, contact country-code='KE' + phone + submission success, lead-country-code='KE')"
+  },
+  "test_credentials": "admin@roobani.com / Admin@Roobani2026! (super admin) — not needed for this iteration. Dashboard currency test was not run with an authenticated session because seeded customer credentials are not in /app/memory/test_credentials.md (file only contains admin + 'sign up via /signup if needed'); however the CurrencyProvider is mounted ABOVE AuthProvider in App.js so the same context drives Dashboard — no separate integration risk.",
+  "seed_data_creation": "Created 2 throwaway contact records via /api/contact (TEST_Contact User, TEST_NoPhone) and 1 via UI (TEST Contact UI). No user accounts created.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run with: `cd /app && REACT_APP_BACKEND_URL=$(grep REACT_APP_BACKEND_URL frontend/.env | cut -d= -f2) python -m pytest backend/tests/test_fx_and_contact.py -v`. UI testids: cookie-consent-banner / cookie-manage / cookie-reject / cookie-accept / cookie-manage-panel / cookie-row-{necessary|functional|analytics|marketing} / cookie-toggle-{key} / cookie-manage-save / cookie-manage-reject-all / cookie-manage-accept-all; nav-currency-switcher (+ -current, -menu, -option-{usd|eur|gbp|kes}); footer-privacy/terms/cookies; privacy-page/terms-page/cookies-page; contact-country-code, contact-phone, contact-success; lead-country-code. localStorage keys: 'rb-cookie-consent' (versioned object), 'rb-currency' (string code). Dashboard currency switcher (dashboard-currency-switcher) was not exercised due to missing seeded customer credentials — main agent should self-verify by signing up and logging in.",
+  "rca of the issue": "n/a — no failures observed. The only console noise is the hydration warning about <span> inside <option> which is generated by the Emergent dev-overlay tooling (x-ve-dynamic markers visible in the warning stack) rather than user code — but it is still emitted by React and would also fire in production builds where the overlay is stripped. Mitigation listed in action_items."
+}

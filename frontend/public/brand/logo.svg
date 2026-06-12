@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" role="img" aria-label="Roobani">
+  <!--
+    Roobani primary lockup. Designed in vector so it scales crisply from 16px
+    favicons to billboards, and to keep the page payload tiny (~1KB).
+
+    Visual idea: a geometric, slightly-modernist serif R with a gold descender
+    that doubles as an underline — referencing both old-money financial seals
+    and modern data-driven design. The descender's small upturn is a subtle
+    growth-curve nod, reinforcing the "Invest with clarity" brand promise
+    without resorting to literal chart imagery.
+  -->
+  <title>Roobani</title>
+  <g fill="none">
+    <!-- Gold "growth tick" underline beneath the wordmark. Sits as a single
+         stroke so we can re-color it from CSS via currentColor if needed. -->
+    <path d="M 24 60 L 184 60 L 196 52" stroke="#C9A84C" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"/>
+
+    <!-- Geometric R monogram. Built from straight strokes so it remains crisp
+         even at 16px. The triangular leg balances the body of the wordmark. -->
+    <g fill="#1A1F3D">
+      <rect x="22" y="14" width="6" height="36"/>
+      <path d="M 28 14 L 50 14 Q 60 14 60 24 Q 60 34 50 34 L 28 34 Z"/>
+      <path d="M 44 34 L 60 50 L 50 50 L 36 36 Z"/>
+    </g>
+
+    <!-- Wordmark: ROOBANI in a wide, slightly-condensed display geometry to
+         pair with the monogram. Letters drawn as <text> so they pick up the
+         system Fraunces font we load globally, with a robust serif fallback. -->
+    <text x="74" y="44"
+          font-family="Fraunces, 'DM Serif Display', 'Times New Roman', serif"
+          font-weight="600"
+          font-size="34"
+          letter-spacing="2.5"
+          fill="#1A1F3D">ROOBANI</text>
+  </g>
+</svg>

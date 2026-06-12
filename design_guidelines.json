@@ -1,0 +1,130 @@
+{
+  "brand_identity": {
+    "name": "Roobani",
+    "theme": "light",
+    "archetype": "Archetype 5 (Luxury) infused with Archetype 4 (Swiss & High-Contrast) tailored for Light Theme",
+    "vibe": "Premium private bank, bespoke design studio, highly objective, data-driven, sharp, institutional trust",
+    "logo": "Clean minimal modern wordmark 'Roobani'. No generic up-arrows or dollar signs. Incorporate a subtle, sharp geometric growth or wealth symbol."
+  },
+  "strict_rules": [
+    "ABSOLUTELY NO em dashes (this character: u2014) anywhere in text, code, comments, alt text, or strings. Use hyphens, colons, or commas.",
+    "NO curved or rounded buttons. 0px border radius is strictly enforced across the entire application for all interactive elements.",
+    "NO AI/template/generic appearance. Must feel custom-coded and bespoke.",
+    "Objective heavy, not text heavy. Use data points, numbers, metrics, charts, icons. Minimize paragraphs to punchy statements.",
+    "All interactives MUST have a 'data-testid' attribute (e.g., data-testid='login-submit-btn').",
+    "No stock photos. All images to be AI generated using Gemini Nano Banana guidelines.",
+    "Strict light theme only. Do not introduce dark mode."
+  ],
+  "colors": {
+    "background_primary": "#FAFAF8",
+    "background_secondary": "#F0EDE6",
+    "text_primary": "#1C1C1E",
+    "text_secondary": "#6B6B6B",
+    "accent_primary_navy": "#1A1F3D",
+    "accent_secondary_gold": "#C9A84C",
+    "accent_tertiary_teal": "#2A9D8F",
+    "border_divider": "#E0DDD5",
+    "success_muted_green": "#3A7D5C",
+    "alert_muted_red": "#C0392B"
+  },
+  "typography": {
+    "headings": {
+      "font": "DM Serif Display",
+      "usage": "Use for H1, H2, and large impactful quotes to inject heritage and luxury.",
+      "styles": "tracking-tight, leading-none"
+    },
+    "body": {
+      "font": "Satoshi",
+      "usage": "Use for all standard body copy, labels, and descriptions.",
+      "styles": "tracking-normal, leading-relaxed"
+    },
+    "data_monospace": {
+      "font": "JetBrains Mono",
+      "usage": "Exclusively for data points, tickers, percentages, API responses, and financial metrics to emphasize precision.",
+      "styles": "tracking-tighter, uppercase for labels"
+    }
+  },
+  "spacing_scale": {
+    "philosophy": "Generous Spacing Philosophy. Use 2-3x more spacing than typical templates.",
+    "section_padding": "py-24 md:py-32",
+    "container_padding": "px-6 md:px-12",
+    "grid_gap": "gap-8 md:gap-12",
+    "element_gap": "gap-4 md:gap-6",
+    "bento_padding": "p-8 md:p-12"
+  },
+  "components": {
+    "buttons": {
+      "global_rule": "0px border-radius strictly. Sharp corners.",
+      "variants": {
+        "primary": "Solid Deep Navy (#1A1F3D) background, Off-white text. Hover: Sharp hover-fill sweep from left to right using a slightly lighter navy or teal accent. 0px radius.",
+        "secondary": "Transparent background, 1px solid Deep Charcoal (#1C1C1E) border. Hover: Border changes to Warm Gold (#C9A84C) with sharp right-angled corner bracket expansions.",
+        "ghost": "Text-link CTA. Thick underline-reveal on hover. Sharp edges, 0px padding on x-axis.",
+        "slanted": "Creative variant: Parallelogram shape (skew-x) but with 0px radius corners, containing un-skewed text. Use sparingly for high-impact CTAs."
+      }
+    },
+    "cards": {
+      "glassmorphism": {
+        "surface": "bg-white/60 backdrop-blur-2xl border border-[#E0DDD5]/40",
+        "shadow": "shadow-[0_8px_32px_rgba(28,28,30,0.04)]",
+        "usage": "Use for overlapping content, sticky headers, and floating widgets."
+      },
+      "solid": {
+        "surface": "bg-[#FAFAF8] border border-[#E0DDD5]",
+        "shadow": "shadow-none hover:shadow-[4px_4px_0px_0px_#1A1F3D] transition-shadow duration-300",
+        "usage": "Use for standard investment plan grids. Sharp neo-brutalist shadow on hover."
+      }
+    },
+    "charts": {
+      "style": "Minimalist, no grid lines (or very faint dotted #E0DDD5).",
+      "colors": "Line charts use Warm Gold (#C9A84C) or Refined Teal (#2A9D8F). Tooltips use Glassmorphism.",
+      "typography": "All axis labels and tooltips MUST use JetBrains Mono."
+    }
+  },
+  "layout_grids": {
+    "home_bento": "grid-cols-1 md:grid-cols-12 gap-8. Hero splits 7 cols text, 5 cols visual. Plans grid uses 4-col spans for 3 cards.",
+    "data_panel": "Strict 4-col grid (grid-cols-4) with 1px borders between columns acting as dividers (border-collapse style).",
+    "alignment": "Optical alignment over geometrical. Left-align text blocks and data. Avoid centering unless it's a massive typographic hero statement."
+  },
+  "micro_interactions": {
+    "hover_states": "Crisp and immediate. No sluggish transitions. 150ms ease-in-out.",
+    "data_loading": "Use JetBrains Mono scrambling text effect (matrix style) before revealing final numbers.",
+    "scroll": "Smooth scrolling (Lenis) with staggered fade-up for investment cards."
+  },
+  "page_blueprints": {
+    "landing": {
+      "hero": "Split hero. Left: Massive DM Serif Display heading, punchy stats in JetBrains Mono. Right: Glassmorphism card floating over an abstract AI-generated shape.",
+      "ticker": "Full-width marquee at the bottom of the hero. JetBrains Mono, Deep Navy background, Warm Gold text.",
+      "plans_grid": "3-5 solid sharp cards. Minimal text. Huge numbers for ROI/Fees.",
+      "how_it_works": "4-step process using vertical timeline with sharp square nodes. Minimalist.",
+      "lead_gen": "Minimalist form. Sharp input fields (0px radius, border-bottom only style)."
+    },
+    "investment_plan_detail": {
+      "header": "Massive plan name. Tagline.",
+      "metrics_bar": "Sticky glassmorphism bar with Fee, Min/Max Investment, Lock-in period.",
+      "visuals": "Large Recharts/Shadcn area chart (Historical) and Pie chart (Allocation) using brand palette.",
+      "comparison": "Dense, crisp data table with 1px borders. JetBrains Mono for all data cells."
+    },
+    "auth_pages": {
+      "layout": "Split screen. Left: Authentication form. Right: Abstract premium generated art.",
+      "form": "Google/Apple OAuth sharp buttons. Email/Password fields with sharp borders. Password strength indicator uses segmented sharp bars."
+    }
+  },
+  "image_generation_prompts": [
+    {
+      "category": "Hero Visual",
+      "prompt": "Abstract geometric 3D glass shapes floating elegantly over a soft warm-white studio background. Refined lighting, subtle gold and deep navy refractions. Premium financial institution aesthetic, minimalist, sharp edges, 8k resolution, highly detailed, empty negative space for text overlay."
+    },
+    {
+      "category": "Auth Background",
+      "prompt": "Macro photography of stacked premium textured paper, warm cream and deep charcoal edges. Clean architectural lines, sharp focus, luxury corporate feel, subtle teal lighting accent, depth of field."
+    },
+    {
+      "category": "Security/Trust Visual",
+      "prompt": "A sharply machined metal vault mechanism, frosted glass overlay, modern minimalist aesthetic, soft lighting, warm gold highlights, depth of field, premium banking."
+    },
+    {
+      "category": "Abstract Growth",
+      "prompt": "Minimalist architectural staircase going up, constructed from frosted glass and warm beige stone. Harsh sunlight creating sharp geometric shadows. Conceptual wealth growth, luxury, serene, highly realistic."
+    }
+  ]
+}

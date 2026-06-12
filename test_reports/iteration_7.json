@@ -1,0 +1,71 @@
+{
+  "summary": "Phase B backend coverage: server-side pagination/filter/sort + bulk endpoints on /admin/customers, /admin/admins, /admin/withdrawals, including partial-failure semantics, audit emission with meta.via='bulk', auth gates (401/403), manager scope, and single-endpoint backwards-compat. 38/38 pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/admin/admins/bulk-delete (Cannot delete the last super admin guard)",
+        "issue": "Guard checks `count_documents({access_level:0, active:True}) <= 1` but the guard ONLY ever fires when the actor is super and is targeting a non-self super while the active-super count is already <= 1. With ONE active super, that super is always the actor (caught earlier by the self-delete check), so the guard becomes reachable only by targeting an INACTIVE super (as exercised by test_24). Practically the guard never blocks a real deletion that would actually drop active supers to 0 — because as long as the actor is an active super, deleting any OTHER super still leaves at least the actor active. The check arguably should look at `(access_level=0, active=True)` count POST-deletion (i.e. exclude target if active), but as-is the spec text is satisfied for the inactive-target path."
+      },
+      {
+        "endpoint": "/api/admin/customers (manager_admin_id filter)",
+        "issue": "Implementation builds intersection only when an explicit `user_id $in` already exists in base_filter. Safe for super admin (no scope filter set), but the `else` branch assumes there's no other user_id constraint — fine today since super admin is the only path that reads manager_admin_id, but if scope logic ever evolves to add user_id filters for super, this could silently overwrite them. Defensive nit, not a current bug."
+      },
+      {
+        "endpoint": "/api/admin/audit (still returns target_type-only match)",
+        "issue": "Carry-over from iteration 6 (Phase A): the audit GET's q regex still only matches action/target_id/admin_id, not target_type. Phase B doesn't touch this — but tests rely on the `action=` filter, which works."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verified_items": [
+    "Customer list returns {items,total,limit,offset,scope}; defaults: limit=50, offset=0, scope='all' for super.",
+    "limit > 500 clamped to 500; negative offset clamped to 0.",
+    "Filters work: kyc=verified (exact), q (regex on full_name+email_lookup), plan (exact slug), blocked (true/false).",
+    "Sort whitelist honoured (created_at/full_name/email_lookup/plan_slug/kyc_status); invalid sort silently falls back to created_at; asc + desc both work.",
+    "Pagination offset/limit returns disjoint result sets.",
+    "POST /admin/customers/bulk action=block sets blocked=true on all N user_ids, emits N audit rows with action='customer.bulk.block' and meta.via='bulk' and diff present.",
+    "Unblock via bulk restores blocked=false.",
+    "set_kyc=verified updates kyc_status; invalid kyc_status -> 400.",
+    "Non-existent user_id in bulk lands in `failed` with reason='not_found'; valid IDs still succeed.",
+    "GET /admin/admins supports q, access_level, active, sort, order, offset, limit; response includes total + global counts (counts unaffected by filters).",
+    "Bulk-delete admins: self -> 'Cannot delete your own account'; unknown -> 'Not found'; valid -> deletes + clears sessions + assignments + audit emitted with meta.via='bulk'.",
+    "Bulk-delete guard 'Cannot delete the last super admin' fires when active super count == 1 and target.access_level == 0 (validated via inactive target).",
+    "GET /admin/withdrawals supports status_filter, q (across customer_user_id/withdrawal_id/bank_beneficiary/destination_summary), from_date/to_date, sort (created_at/amount/status), order, offset, limit.",
+    "Bulk-decide approve on (pending+approved+bogus) -> pending in succeeded, approved -> 'already approved', bogus -> 'not_found'.",
+    "Approved bulks update status, set approved_by_admin_id, and emit audit row action='withdrawal.approved' with meta.via='bulk'.",
+    "Reject bulk transitions pending -> rejected and emits 'withdrawal.rejected' audit with meta.via='bulk'.",
+    "401 unauthenticated for /admin/admins, /admin/customers, all three bulk endpoints.",
+    "403 for access_level=1 manager on /admin/admins, /admin/admins/bulk-delete, /admin/withdrawals/bulk-decide.",
+    "Manager (access_level=1) sees scope='assigned' on /admin/customers and only their assigned IDs.",
+    "Manager bulk on a mix of in-scope + out-of-scope user_ids: in-scope succeed, out-of-scope land in failed with 'not assigned to you' reason.",
+    "Super admin manager_admin_id filter scopes the customer list to that manager's assignments.",
+    "Single PATCH /admin/customers/{id} still works and emits an audit row with `diff` populated.",
+    "Single DELETE /admin/admins/{id} still works.",
+    "Single POST /admin/withdrawals/{id}/decide still works.",
+    "Phase A regression: /admin/auth/me still returns mfa_enabled=true; /admin/audit filters still work."
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_phase_b_admin_bulk.py",
+    "/app/test_reports/pytest/pytest_iter7.xml"
+  ],
+  "action_items": [
+    "(Optional) Reconsider the 'Cannot delete the last super admin' guard wording/semantics: today it can block a no-op deletion of an inactive super, which is mostly harmless but confusing. A check that counts active supers post-target-removal would be more intuitive.",
+    "(Carry-over from iter 6) Extend /admin/audit q regex to also match target_type, and audit other admin writes (admin.delete via single PATCH, customer.assign, settings.update) for ip/user_agent passthrough — single-endpoint paths still don't populate ip/user_agent everywhere. Verified for the bulk paths only."
+  ],
+  "critical_code_review_comments": [
+    "_audit() drops `before`/`after` into a single `diff` field rather than persisting them separately. Spec says 'meta.via=bulk, with before/after diff'; current shape satisfies that semantically because the `diff` map captures changed fields, but the audit GET surface exposes only `diff`, not raw before/after. UI consumers should be told to read `diff`, not separate keys.",
+    "admin_bulk_customers wraps each user iteration in `except Exception` and stuffs str(e)[:120] into failed.reason. That swallows unexpected DB exceptions as if they were normal scope/not-found rejections — fine for partial-failure UX but masks operational errors from monitoring. Consider logging the exception with traceback inside the catch.",
+    "/admin/withdrawals/bulk-decide stores payout_summary on the audit `meta` map — payout_summary contains amount + provider + reference. The redactor (_redact) does NOT trim amount/reference; verify there's no PII leakage into audit (currently bank_beneficiary is not in the summary, so we're fine, but worth a defensive review when live keys land).",
+    "Repeated SORTABLE whitelist + limit/offset clamp + filter assembly logic is duplicated across the three list endpoints. Worth factoring into a small helper to keep them in sync (e.g. when adding new filters)."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase_b_admin_bulk.py"],
+  "success_rate": {"backend": "38/38 (100%)", "frontend": "n/a (backend-only request)"},
+  "test_credentials": "Super: admin@roobani.com / Admin@Roobani2026! (MFA re-enrolled during run, secret stored in test state). Transient managers created with password 'Abcd1234!aaa' (all emails prefixed with 'test_phaseb_').",
+  "seed_data_creation": "12 customers (user_phaseb_000..011) with varied kyc/plan/blocked, 6 withdrawals (wd_phaseb_000..005) — 4 pending, 1 approved, 1 rejected. 3 manager admins + 1 extra super admin via /admin/admins. All cleaned up by the module-scope teardown (mongo deleteMany matching test_phaseb_/user_phaseb_/wd_phaseb_).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run with `REACT_APP_BACKEND_URL=<public preview URL> pytest backend/tests/test_phase_b_admin_bulk.py -v`. The module-scope fixture auto-resets MFA + seed data via mongosh, so the suite is fully self-contained on re-runs. Suite takes ~10s (no rate-limit cooldown is hit because each admin login uses its own credentials). All 38 spec items pass against the public preview URL. The two initial failures during development were assertion-level (the audit GET surfaces a single `diff` field, not separate before/after keys) and are fixed in the test file. Frontend Phase B (DataTable, AdminLayout regrouping, mobile drawer, density/columns/export, card stack, skeleton loaders) was NOT tested per the explicit 'backend only(skip frontend)' instruction.",
+  "rca of the issue": "No functional bugs found in Phase B scope. One minor semantic concern with the last-super-admin guard (only reachable for inactive targets in single-active-super setups) — noted but not blocking."
+}

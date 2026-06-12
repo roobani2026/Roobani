@@ -1,0 +1,67 @@
+{
+  "summary": "Phase A backend end-to-end: TOTP MFA (setup/verify/disable/force-disable/recovery) + expanded admin audit log (ip/user_agent/diff + filters/pagination/auth-gates) + backwards-compat checks. 29 passed, 1 skipped (pagination requires >50 audit rows). All spec items verified against the public preview URL.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/admin/auth/* and other admin writes",
+        "issue": "Rate-limit buckets are keyed by (ip, rule) string — endpoints that share the SAME rule string (e.g. '10/minute') share a bucket per IP. That means hitting /admin/auth/login 10 times in a minute will return 429 from /admin/auth/mfa/verify, /api/auth/login (customer), /api/leads, /api/contacts, /api/auth/password-reset/confirm. This is shared bucket semantics, not per-endpoint. Tests are written around this; flagging because it's likely not the intent — a forgetful admin trying to log in could legitimately lock out unrelated customer endpoints from the same office IP. Recommend keying on (ip, rule, request.url.path) inside rate_limit() at backend/server.py:118."
+      },
+      {
+        "endpoint": "/api/admin/admins (DELETE), /api/admin/admins (PATCH), /api/admin/customers/* (PATCH), /api/admin/settings (PATCH), /api/admin/withdrawals/* etc.",
+        "issue": "Many existing _audit() call sites do NOT pass request=request, so the new ip and user_agent fields persist as empty strings for those events. Verified in Mongo: admin.delete rows show ip='' and user_agent=''. The phase-A spec was 'capture IP/user-agent/diff on every admin write' — only the new MFA call sites (login/setup/verify/disable/force-disable/recovery) currently populate ip+UA. Pre-existing call sites at server.py lines 1861, 1915, 1973, 2001, 2004, 2056, 2255 should be updated to pass request=request (and ideally before=/after= so the diff field is populated as well)."
+      },
+      {
+        "endpoint": "/api/admin/audit (q filter)",
+        "issue": "q regex matches action/target_id/admin_id only — NOT target_type. Spec says: \"q='admin.mfa' regex-matches across action/target/admin_id\". 'target' is ambiguous; current implementation maps it to target_id only. If the intent is to also include target_type, extend the $or array at server.py:2103."
+      }
+    ]
+  },
+  "frontend_issues": { "ui_bugs": [], "integration_issues": [], "design_issues": [] },
+  "verified_items": [
+    "Un-enrolled login returns mfa_setup_required + 32-char base32 secret + data: QR + 'Roobani Admin' issuer + ttl_minutes=5 and does NOT set admin_session_token cookie. PASS.",
+    "Wrong TOTP at setup -> 401 'Invalid authenticator code', no session. PASS.",
+    "Correct TOTP at setup -> 200, mfa_enabled=true, 8 recovery codes formatted XXXX-XXXX-XXXX, admin_session_token cookie set. /api/admin/auth/me shows mfa_enabled=true. PASS.",
+    "Replay of consumed setup challenge -> 400 'Invalid or expired challenge'. PASS.",
+    "Enrolled login -> mfa_required + challenge_token, no cookie. /mfa/verify with fresh TOTP -> 200, via='totp', cookie set. PASS.",
+    "Recovery code login -> 200, via='recovery', remaining_recovery_codes drops by 1 (8 -> 7). Re-using the SAME recovery code -> 401. PASS.",
+    "Rate-limit on /mfa/verify -> at least one 429 within 13 attempts. PASS.",
+    "Self-disable: wrong password -> 401; wrong code -> 401; correct password+TOTP -> 200 and me.mfa_enabled flips to false. PASS.",
+    "Force-disable: targeting self -> 400; targeting another admin -> 200, target's existing session 401s on /me, target's next login returns mfa_setup_required. PASS.",
+    "Audit list returns {items,total,limit,offset}; each row has ip (string) and user_agent (string). PASS.",
+    "Filters: action=admin.login, admin_id=<self>, q='admin.mfa', target_type=<bogus> -> total=0 items=[]. PASS.",
+    "Recent audit actions captured: admin.login, admin.mfa.enroll, admin.mfa.disable, admin.mfa.fail, admin.mfa.force_disable. PASS.",
+    "Auth gates: /admin/audit unauth -> 401; non-super-admin (access_level=1) -> 403. PASS.",
+    "Sanity: /admin/admins, /admin/customers, /admin/dashboard, /admin/settings still 200 for super admin. PASS.",
+    "Customer BC: /api/auth/login + /api/auth/me with admin@roobani.dev / RoobaniAdmin#2026 -> 200. PASS."
+  ],
+  "skipped_items": [
+    "test_46_audit_pagination — required total>50 audit rows; test environment had exactly 50 at the time of the slice comparison. Pagination math itself (skip/limit) is exercised implicitly via offset=0&limit=10 returning a populated list with the correct shape."
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_phase_a_mfa_audit.py",
+    "/app/test_reports/pytest/pytest_iter6.xml"
+  ],
+  "action_items": [
+    "Backfill request=request (and before=/after= where applicable) into the legacy _audit() call sites at server.py lines 1861, 1915, 1973, 2001, 2004, 2056, 2255 so that ip/user_agent/diff actually populate for admin writes outside the MFA flow — without this, the audit log's new fields are sparse and the spec line 'capture IP/user-agent/diff on every admin write' is only partially satisfied.",
+    "Consider keying rate-limit buckets on (ip, rule, path) at server.py:121 — sharing one bucket per rule across endpoints causes legitimate /api/auth/login (customer) traffic to be 429'd by /admin/auth/* bursts from the same IP.",
+    "(Optional) Extend the q regex in /admin/audit to include target_type for symmetry with the spec wording 'across action/target/admin_id'.",
+    "(Optional) Seed a fresh MFA reset step before each Phase A retest — handled by the mongosh one-liner in test_credentials.md, but worth bundling into a make target."
+  ],
+  "critical_code_review_comments": [
+    "Audit instrumentation gap: only the new MFA endpoints currently pass request=request to _audit(). Existing admin writes (admin.delete, customer.update, customer.assign, customer.unassign, settings.update, withdrawal.*) persist ip='' and user_agent=''. This undermines the Phase A audit spec; the helper exists, just not wired in.",
+    "Shared rate-limit bucket: rate_limit() at server.py:112-129 keys on (ip, rule) only. Two different endpoints sharing the rule string '10/minute' (e.g. admin login and customer login) inadvertently share a bucket. Either include the path in the key or use distinct rule names per endpoint.",
+    "_resolve_mfa_challenge does not check expires_at — TTL is enforced only by the Mongo TTL index (expireAfterSeconds=900 on mfa_challenges.expires_at). Index sweep is opportunistic (up to 60s lag), so a 5-min challenge could be redeemable for up to ~6 min. Add an explicit expiry guard in _resolve_mfa_challenge for defense in depth.",
+    "/admin/auth/mfa/verify counts remaining_recovery_codes by reading the in-memory pre-consume length (line 1718). After the verify the actual DB value is already decremented; subtracting 1 client-side works but is fragile — prefer re-reading the doc after the update.",
+    "force-disable does not require the super-admin to re-confirm with their own TOTP/password. That's intentional (you reach this endpoint only with a fresh admin session) but worth a second look since the cookie TTL is 7 days — losing a laptop would let anyone with the session reset every other admin's MFA. Consider step-up auth on this single endpoint."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase_a_mfa_audit.py"],
+  "success_rate": { "backend": "29/29 executed passing (100%); 1 conditionally-skipped", "frontend": "n/a (backend-only request)" },
+  "test_credentials": "Super admin admin@roobani.com / Admin@Roobani2026! and customer admin@roobani.dev / RoobaniAdmin#2026 — both verified working. Note: after this run the super admin is left ENROLLED in MFA with a fresh secret (TOTP), so the next test run must re-reset MFA state via the mongosh one-liner in /app/memory/test_credentials.md before /admin/auth/login will return mfa_setup_required.",
+  "seed_data_creation": "Created one transient admin (full_name 'Phase A Tester', email test_phaseA_<rand>@roobani.io, access_level=1) for force-disable + 403 audit access tests. Cleaned up by the session-scope cleanup fixture (DELETE /api/admin/admins/{id}). Also burned the 10/minute rate-limit bucket once (test_14) — followed by 62s sleep so subsequent admin/customer login tests succeed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 29 Phase A spec items pass against the public preview URL. Pre-run reset: 'mongosh --quiet --eval \\'db = db.getSiblingDB(\"test_database\"); db.admin_users.updateOne({email_lookup:\"admin@roobani.com\"},{$set:{mfa_enabled:false,totp_secret_enc:null,recovery_codes_hashed:[],failed_attempts:0,locked_until:null}}); db.admin_users.deleteMany({email_lookup:{$regex:\"^test_phasea_\"}}); db.mfa_challenges.deleteMany({}); db.admin_sessions.deleteMany({});\\''. Suite takes ~78s (62s of it is the rate-limit cooldown sleep). Two real backend gaps worth surfacing to the main agent: (1) legacy _audit() call sites don't pass request= so ip/user_agent are empty for non-MFA admin writes; (2) rate_limit bucket sharing across endpoints by rule-string. Both are documented in action_items.",
+  "rca of the issue": "n/a — no functional bugs in Phase A scope. The two minor backend gaps surfaced are partial-implementation/code-quality concerns, not breakages."
+}

@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 2: validated password reset, email verification, admin RBAC, Stripe checkout fund, holdings, and all new UI flows. Backend 40/40 pytest pass (23 new + 17 regression). Frontend: logo 64px confirmed, both PlanExplainer sections render, /auth/forgot dev token flow works, /admin Restricted-area + admin stats/tables work, /fund/<slug> page renders with 3 payment methods + Continue button, Dashboard 'Verify your email' banner + 'No holdings yet.' empty state both correct. One frontend UX bug found in EmailVerify.jsx (StrictMode double-fire shows 'Verification failed' even though email IS actually verified on the backend). Binance WS fails from the test sandbox (expected, non-blocking per request).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "EmailVerify page (/auth/verify?token=...)", "issue": "Page renders 'Verification failed. Invalid or used token' on success because the verification POST is fired twice by React 18 StrictMode useEffect. First call returns 200 (and email_verified becomes true on backend), second call returns 400 'Invalid or used token' and that error state is what the user sees. Fix: guard the POST with a useRef sentinel or treat 400 as a soft success and re-fetch /auth/me to confirm. Confirmed via reproduction: two sequential POSTs to /api/auth/email/verify/confirm with the same fresh token return (200, 400) and /auth/me shows email_verified=true.", "selector": "/auth/verify route in EmailVerify.jsx", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Live crypto via Binance WebSocket", "issue": "wss://stream.binance.com:9443/stream handshake fails from the preview sandbox (geographical/CORS restriction in this environment). LIVE indicator therefore not visible during automated test runs. Backend /api/market/crypto fallback still works. Non-blocking per review_request, but real users from blocked geographies will also see no 'LIVE' tag — consider a server-side WS proxy or a polling fallback that lights the LIVE pill.", "affected_selectors": ["MarketTicker crypto LIVE pill", "LiveMarketPanel Digital Assets live label"]}
+    ],
+    "design_issues": [
+      {"screen": "Multiple", "issues": ["Recharts emits 16+ 'width(-1) and height(-1) of chart should be greater than 0' warnings on dashboard and live-market panel. Cosmetic only — likely a flexbox container with no explicit min-height during initial mount. Wrap charts in a div with minHeight set."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_2.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_iter2.xml"
+  ],
+  "action_items": [
+    "Fix EmailVerify.jsx StrictMode double-fire: guard the verify POST behind a useRef so it runs once, or interpret a 400 'Invalid or used token' as success when /auth/me confirms email_verified=true.",
+    "(Optional) Investigate Binance WS reachability from the preview origin / add a backend WS proxy so the LIVE indicator works in regions that block stream.binance.com.",
+    "(Cosmetic) Set explicit min-height on Recharts ResponsiveContainer wrappers to silence the width(-1)/height(-1) warnings on dashboard and live-market panel."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now ~900 lines and crossing the 700-line guideline. Recommend splitting into routes/auth.py, routes/checkout.py, routes/admin.py, routes/market.py with a shared deps.py for current_user + Mongo handles.",
+    "STRIPE_API_KEY default fallback 'sk_test_emergent' is hardcoded twice (checkout_fund, checkout_status, stripe_webhook). Extract to a module-level constant and remove the inline `or 'sk_test_emergent'` defaults to avoid divergence.",
+    "Password reset token TTL is 2 hours and email verify is 48 hours — reasonable. Tokens are single-use via the `used` flag — verified by test_confirm_flow_full.",
+    "Admin seed is idempotent (find_one before insert) — good. is_admin defaults to False elsewhere — good.",
+    "/api/checkout/status fetches Stripe status on EVERY non-paid call which can be expensive. Consider caching the last status check or rate-limiting client polling. Frontend Dashboard.jsx polls via fund_session_id query param — verify the polling interval is reasonable (3-5s minimum).",
+    "Webhook handler at /api/webhook/stripe correctly idempotent-checks payment_status before inserting a Holding. Good.",
+    "Admin endpoints decrypt PII on read — correctly gated by Depends(require_admin). 401 vs 403 distinction is correct (unauthed=401, non-admin=403)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration_2.py"],
+  "success_rate": {"backend": "100% (40/40: 23 new + 17 regression)", "frontend": "~92% (1 high UX bug on /auth/verify, WS LIVE label non-functional in sandbox)"},
+  "test_credentials": "admin@roobani.dev / RoobaniAdmin#2026 — verified is_admin=true after login. investor@roobani.dev / Roobani#2026 — non-admin, used for /admin Restricted check.",
+  "seed_data_creation": "Created ~10 throwaway @roobani.dev users plus 2 admin leads (adminlead_*@roobani.dev) and 1 admin contact (admincontact_*@roobani.dev). All TEST_-prefixed or random hex. Did not modify the seeded admin user.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All iteration-2 backend functionality is solid — see /app/backend/tests/test_iteration_2.py for the regression suite (run with REACT_APP_BACKEND_URL set). The single open issue is EmailVerify.jsx double-firing under React StrictMode; reproduce by registering a fresh user, hitting Resend on Dashboard, clicking the dev verify link — the page will show 'Verification failed' but a follow-up GET /api/auth/me will show email_verified=true. Stripe checkout sessions get created with payment_status='initiated' and stored in db.payment_transactions; we did not complete a real Stripe payment, so the 'paid → holding created' path was only verified by code review (server.py lines 633-642 and 657-673 are idempotent and look correct).",
+  "rca of the issue": "RCA — EmailVerify.jsx double-call: Reproduced two sequential POST /api/auth/email/verify/confirm with the same valid token: call1 → 200 {ok:true}, call2 → 400 {detail:'Invalid or used token'}. /auth/me afterwards shows email_verified=true. Cause: React 18 StrictMode in development invokes effects twice on mount; the page's useEffect that posts the token is not guarded. Mitigation options: (a) useRef sentinel to ensure single call; (b) treat 400 'Invalid or used token' as a soft success and refetch /auth/me; (c) move the call out of useEffect into an explicit user-initiated submit. Backend behavior is correct (single-use tokens are a feature)."
+}
