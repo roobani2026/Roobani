@@ -13,40 +13,19 @@
 
 ---
 
-## Live state — last updated 2026-06-12 (post-iteration_8 fix landed)
+## Live state — last updated 2026-06-12 (Phase C done; ready to finish)
 
 ### Where the current agent is in the loop
-**Status**: Phase C (key-free) done. iteration_8 backend 19/19 pass. The
-critical-minor finding from iteration_8 (CRM endpoints on the wrong admin
-auth surface) has been **fixed**:
-- `POST /api/admin/crm/resync` and `GET /api/admin/crm/status` now use
-  `Depends(require_access_0)` (admin_session cookie + MFA-protected
-  `admin_users.access_level=0`), not the legacy `require_admin`.
-- The `_audit()` call in `admin_crm_resync` now uses the correct positional
-  args (`admin["admin_id"]` as the first arg, not a kwargs splat).
-- Endpoint definitions physically moved to **line 1616+** in `server.py`,
-  after `require_access_0` is declared (was a NameError at module import).
-- Legacy `/api/admin/leads`, `/api/admin/contacts`, `/api/admin/stats`
-  kept on `require_admin` for now — they're orphan endpoints not used by
-  the admin UI (which calls `/api/admin/dashboard` for those counts) and
-  rewiring them is out of iteration_8 scope.
+**Status**: Phase C (key-free items C1-C4 + C5 shape) **complete and tested**.
+- iteration_8: 19/19 backend pass, flagged auth-surface minor.
+- iteration_9: 18/19 + 1 documented skip after auth-surface fix landed. Skip
+  auto-promotes when `HUBSPOT_API_KEY` is set.
+- One follow-up landed post-iteration_9: `crm.resync.skipped` audit row in
+  the no-key branch (3-line change, hot-reload verified).
 
-The user wants me to:
-1. ✅ Set up this HANDOFF.md tripwire — done.
-2. 🟡 Re-test the auth-surface fix with the testing subagent.
-3. Then `finish()` Phase C and stop here (Phase D needs client keys).
-
-### Next concrete action (if I drop dead here)
-1. Re-run testing subagent on the auth-surface fix — task body:
-   "Re-verify `/api/admin/crm/status` and `/api/admin/crm/resync` now require
-   the admin_session cookie + access_level=0 (super admin via
-   `/api/admin/auth/login` + MFA at `/api/admin/auth/mfa/verify`). The
-   customer-side session_token should be rejected (401 or 403). The audit
-   row written by `/admin/crm/resync` must have `admin_id` matching the
-   `admin_users.admin_id` (format `adm_xxxx`), not a customer `user_xxxx`.
-   Update `backend/tests/test_phase_c_seo_crm.py` to use the admin_session
-   fixture (see Phase B tests for the helper). Run pytest, return verdict."
-2. If 19/19 again, call `finish()` with PRD summarising Phase C delivery.
+Next agent: there is NOTHING urgent to do. Either finish the session
+(`finish()` tool with PRD-aligned summary) or wait for the client to
+provide keys for Phase D (PostHog/GA4, Sentry, Telegram, Crisp).
 
 ### Phase C delivered this iteration (2026-06-12)
 - **C3 SEO**: `<SEO/>` Helmet component on every public + auth route. JSON-LD

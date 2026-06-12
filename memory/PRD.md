@@ -105,7 +105,9 @@ SEO, performance, observability, and support channels. Work is being delivered i
 ## Backlog (next phases)
 ### 2026-06-12 — Phase C (partial): Public site & brand
 Delivered in this iteration — all key-free items (C1–C4). C5 (HubSpot CRM)
-shape is wired and waiting on the production key.
+shape is wired and waiting on the production key. Backend test coverage:
+**iteration_9 — 18/19 pass + 1 documented skip** (skip auto-promotes when
+HUBSPOT_API_KEY lands).
 
 - **C1 — Brand character** (done earlier in this phase):
   Inline SVG logo lockup (Logo / LogoStacked / LogoMark), navy + warm gold +
@@ -147,10 +149,15 @@ shape is wired and waiting on the production key.
     `asyncio.create_task(_crm_push_contact(...))` after persisting locally.
     With no `HUBSPOT_API_KEY`, the function logs and no-ops — submissions stay
     in `db.contact_submissions` and `db.leads` with `crm_synced=false`.
-  - New super-admin endpoints (`/api/admin/crm/status`,
+  - New super-admin endpoints (`GET /api/admin/crm/status`,
     `POST /api/admin/crm/resync?limit=200`): when the key lands, one POST
     backfills every queued submission via HubSpot's upsert-by-email contacts
-    API. Audit row emitted for the backfill.
+    API. Audit row emitted for both the successful backfill (`crm.resync`)
+    and the no-key click (`crm.resync.skipped`).
+  - **Auth surface**: both endpoints gated by `Depends(require_access_0)` —
+    canonical admin_session cookie + admin_users.access_level=0 + MFA. The
+    customer-side `session_token` cookie is rejected (401). Manager admins
+    (access_level=1) get 403.
 
 ### P0 carryover (waiting on client keys)
 - **C5 — HubSpot live**: drop `HUBSPOT_API_KEY` into `backend/.env`, restart,

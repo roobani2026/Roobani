@@ -1639,6 +1639,16 @@ async def admin_crm_resync(
     """
     api_key = os.environ.get("HUBSPOT_API_KEY", "").strip()
     if not api_key:
+        # Still audit the click — operator visibility into who tried to
+        # backfill while the key was missing is useful for incident review.
+        await _audit(
+            admin["admin_id"],
+            "crm.resync.skipped",
+            "crm",
+            "hubspot",
+            {"reason": "no_key", "synced": 0, "queued": 0},
+            request=request,
+        )
         return {"ok": False, "reason": "HUBSPOT_API_KEY not configured", "synced": 0, "queued": 0}
 
     limit = max(1, min(1000, int(limit)))
